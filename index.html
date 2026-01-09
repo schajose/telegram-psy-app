@@ -103,26 +103,6 @@
     .secondary{ background:rgba(255,255,255,.10); font-weight:800; opacity:.96; }
     .ghost{ background:rgba(255,255,255,.08); font-weight:800; opacity:.92; }
 
-    #imgModal{
-      position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-      background:rgba(0,0,0,.78); backdrop-filter: blur(10px); z-index:20;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:#fff;
-    }
-    #imgModal .card{
-      width:min(840px, calc(100vw - 28px));
-      background:var(--glass2);
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      padding:12px;
-      box-shadow:0 24px 90px rgba(0,0,0,.65);
-      text-align:center;
-    }
-    #imgModal .tip{ opacity:.88; font-size:13px; margin:8px 6px 10px; line-height:1.35; }
-    #imgPreview{
-      width:100%; display:block; border-radius:16px; background:#000;
-      border:1px solid rgba(255,255,255,.12);
-    }
-
     #toast{
       position:fixed; left:12px; right:12px; bottom:12px;
       display:none;
@@ -175,24 +155,9 @@
 
       <div class="btnrow">
         <button id="shareBtn">Share</button>
-        <button id="saveBtn" class="secondary">Save image</button>
       </div>
       <div class="btnrow">
-        <button id="replayBtn" class="ghost">Replay last run</button>
         <button id="againBtn" class="secondary">Play again</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="imgModal">
-    <div class="card">
-      <div class="tip">
-        Mobile: <b>press & hold</b> the image to save.<br/>
-        Desktop: <b>right click</b> → Save image.
-      </div>
-      <img id="imgPreview" alt="PsyHold capture"/>
-      <div class="btnrow" style="margin-top:10px;">
-        <button id="closeImgModal" class="secondary">Close</button>
       </div>
     </div>
   </div>
@@ -227,7 +192,7 @@
   }
 
   function shareText(text) {
-    // Telegram-friendly share. Include URL to your mini app so it spreads.
+    // Telegram-friendly share. Include the mini app URL so it spreads.
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(location.href)}&text=${encodeURIComponent(text)}`;
 
     if (tg && typeof tg.openTelegramLink === "function") {
@@ -263,13 +228,7 @@
   const metaEl = document.getElementById('meta');
 
   const shareBtn = document.getElementById('shareBtn');
-  const saveBtn  = document.getElementById('saveBtn');
-  const replayBtn = document.getElementById('replayBtn');
   const againBtn = document.getElementById('againBtn');
-
-  const imgModal = document.getElementById("imgModal");
-  const imgPreview = document.getElementById("imgPreview");
-  const closeImgModal = document.getElementById("closeImgModal");
 
   // =========================
   // Canvas sizing
@@ -287,23 +246,22 @@
   resize();
 
   // =========================
-  // Game design knobs (viral hit edition)
+  // Game design knobs
   // =========================
-  const MAX_MS = 10_000;          // death at >= 10.00s
-  const CREATURE_START_MS = 8_500; // unlock creatures at >= 8.50s
-  const CLOSE_MS = 9_300;         // boosts
-  const LEGEND_MS = 9_700;        // insane zone
-  const FLASH_MS = 9_900;         // near-death flash cue
+  const MAX_MS = 10_000;              // death at >= 10.00s
+  const CREATURE_START_MS = 8_500;    // unlock creatures at >= 8.50s
+  const CLOSE_MS = 9_300;             // boosts
+  const LEGEND_MS = 9_700;            // insane zone
+  const FLASH_MS = 9_900;             // near-death flash cue
 
-  const DANGER_MS = 7_000;        // danger feedback begins
+  const DANGER_MS = 7_000;            // danger feedback begins
   const HAPTIC_STAGES = [7000, 8000, 8700, 9200, 9600, 9850];
 
-  const SCORE_FLOOR_MS = 600;     // ignore micro taps
+  const SCORE_FLOOR_MS = 600;
 
-  // Hundredths string
   const toHundredths = (ms) => (Math.floor((ms/1000) * 100) / 100).toFixed(2);
 
-  // Streak & PB (local only — perfect for mini apps)
+  // Streak & PB (local only)
   const LS_STREAK = "psyhold_streak_v1";
   const LS_LASTDAY = "psyhold_lastday_v1";
   const LS_PB = "psyhold_pb_v1";
@@ -315,25 +273,19 @@
     return `${y}-${m}-${da}`;
   }
 
-  function getStreak(){
+  function bumpStreakIfFirstShareToday(){
     const s = parseInt(localStorage.getItem(LS_STREAK) || "0", 10);
     const last = localStorage.getItem(LS_LASTDAY) || "";
     const today = dayKey();
-    if (!last) return { streak:s, last:"" , today };
-    return { streak:s, last, today };
-  }
 
-  function bumpStreakIfFirstShareToday(){
-    const { streak, last, today } = getStreak();
-    if (last === today) return streak;
+    if (last === today) return s;
 
-    // if last is yesterday, +1 else reset to 1
-    const lastDate = new Date(last + "T00:00:00");
+    const lastDate = last ? new Date(last + "T00:00:00") : null;
     const todayDate = new Date(today + "T00:00:00");
-    const diffDays = Math.round((todayDate - lastDate) / (24*3600*1000));
+    const diffDays = lastDate ? Math.round((todayDate - lastDate) / (24*3600*1000)) : 999;
 
     let newStreak = 1;
-    if (diffDays === 1) newStreak = Math.max(1, streak + 1);
+    if (diffDays === 1) newStreak = Math.max(1, s + 1);
 
     localStorage.setItem(LS_STREAK, String(newStreak));
     localStorage.setItem(LS_LASTDAY, today);
@@ -341,7 +293,7 @@
   }
 
   function updatePB(msHeld){
-    const pb = parseFloat(localStorage.getItem(LS_PB) || "0");
+    const pb = parseFloat(localStorage.getItem(LS_PB) || "0") || 0;
     const score = parseFloat(toHundredths(msHeld));
     if (!pb || score > pb) {
       localStorage.setItem(LS_PB, String(score));
@@ -369,9 +321,9 @@
   ];
 
   function evolutionFor(msHeld){
-    if (msHeld >= LEGEND_MS) return { label:"Ascended", glow: 1.0 };
-    if (msHeld >= CLOSE_MS)  return { label:"Evolved", glow: 0.7 };
-    return { label:"Awakened", glow: 0.45 };
+    if (msHeld >= LEGEND_MS) return { label:"Ascended" };
+    if (msHeld >= CLOSE_MS)  return { label:"Evolved" };
+    return { label:"Awakened" };
   }
 
   function microTitle(msHeld, died=false){
@@ -389,7 +341,6 @@
     const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
     const expo = Math.pow(p, 3.15);
 
-    // Forced high-tier chance when insanely close
     if (msHeld >= LEGEND_MS && Math.random() < 0.60) {
       const mythics = CREATURES.filter(c => c.rarity === "Mythic");
       return mythics[(Math.random()*mythics.length)|0];
@@ -418,37 +369,13 @@
   }
 
   // =========================
-  // Psychedelic renderer (fast + addictive escalation)
+  // Psychedelic renderer
   // =========================
   const rand = (a,b)=>a+Math.random()*(b-a);
   let seedA = rand(0, 1000), seedB = rand(0, 1000), seedC = rand(0, 1000);
 
   function newSeeds(){ seedA=rand(0,1000); seedB=rand(0,1000); seedC=rand(0,1000); }
-
   function clearCanvas(){ ctx.fillStyle="#000"; ctx.fillRect(0,0,W,H); }
-
-  // Captured run frames for "Replay last run"
-  // We store only a few keyframes (dataURLs) to keep it light.
-  let replayFrames = []; // [{tMs, url}]
-  let replayBestFrameUrl = null;
-
-  function maybeCaptureFrame(msHeld){
-    // capture 3 keyframes: around 7.5s, 8.8s, 9.6s (best for replay)
-    const targets = [7500, 8800, 9600];
-    const tol = 55; // ms window
-    if (replayFrames.length >= 3) return;
-    for (const t of targets) {
-      const already = replayFrames.some(f => Math.abs(f.tMs - t) < 200);
-      if (already) continue;
-      if (Math.abs(msHeld - t) <= tol) {
-        try {
-          const url = canvas.toDataURL("image/png");
-          replayFrames.push({ tMs: t, url });
-          replayBestFrameUrl = url;
-        } catch(e) {}
-      }
-    }
-  }
 
   function renderPsy(msHeld){
     const p = Math.max(0, Math.min(1, msHeld / MAX_MS)); // 0..1
@@ -458,12 +385,10 @@
     const sp = 0.35 + expo * 3.1;
     const zoom = 0.9 + expo * 2.15;
 
-    // Wobble near end
     const wobble = (p > 0.84) ? (Math.sin(t*18) * (p - 0.84) * 0.075) : 0;
     const cx = W/2 + wobble * W;
     const cy = H/2 + Math.cos(t*17) * wobble * H;
 
-    // Blocks get smaller near end -> feels "higher res" when risky
     const block = Math.max(2, Math.floor((7 - expo*4.8) * dpr));
 
     for (let y=0; y<H; y+=block){
@@ -485,14 +410,12 @@
       }
     }
 
-    // Vignette stronger near end
     const g = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.12, W/2,H/2, Math.min(W,H)*0.78);
     g.addColorStop(0, "rgba(0,0,0,0)");
     g.addColorStop(1, `rgba(0,0,0,${0.22 + expo*0.42})`);
     ctx.fillStyle = g;
     ctx.fillRect(0,0,W,H);
 
-    // Danger tint
     if (p > 0.70) {
       ctx.fillStyle = `rgba(255, 0, 70, ${(p-0.70)*0.22})`;
       ctx.fillRect(0,0,W,H);
@@ -500,7 +423,6 @@
   }
 
   function nearDeathFlash(){
-    // quick "blink" without killing—makes near-miss unforgettable
     ctx.fillStyle = "rgba(255,255,255,.085)";
     ctx.fillRect(0,0,W,H);
   }
@@ -513,13 +435,9 @@
   }
 
   // =========================
-  // Audio (optional heartbeat)
-  // - WebViews often block autoplay. We only start after first interaction.
+  // Audio (soft heartbeat)
   // =========================
-  let audioCtx = null;
-  let osc = null;
-  let gain = null;
-  let audioEnabled = false;
+  let audioCtx = null, osc = null, gain = null, audioEnabled = false;
 
   function ensureAudio(){
     if (audioCtx) return;
@@ -532,16 +450,13 @@
       gain.gain.value = 0.0;
       osc.connect(gain).connect(audioCtx.destination);
       osc.start();
-    } catch(e) {
-      audioCtx = null;
-    }
+    } catch(e) { audioCtx = null; }
   }
 
   function setHeartbeat(msHeld){
     if (!audioEnabled || !audioCtx || !osc || !gain) return;
     const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
     const expo = Math.pow(p, 2.3);
-    // frequency & volume ramp with danger
     const baseF = 70 + expo * 170;
     osc.frequency.setValueAtTime(baseF, audioCtx.currentTime);
 
@@ -557,21 +472,14 @@
   // =========================
   // Game state
   // =========================
-  let holding = false;
-  let dead = false;
-  let frozen = false;
+  let holding = false, dead = false, frozen = false;
   let holdStart = 0;
-
   let rafId = null;
   let lastHapticStage = -1;
   let flashed = false;
 
-  // last run result for sharing
+  // last run result
   let lastResultText = "";
-  let lastScoreStr = "";
-  let lastCreature = null;
-  let lastMsHeld = 0;
-  let lastDied = false;
   let lastSafeMs = 0;
 
   function setUIIdle(){
@@ -586,29 +494,17 @@
   }
 
   function resetRound({ showHint=false } = {}){
-    holding = false;
-    dead = false;
-    frozen = false;
-    lastHapticStage = -1;
-    flashed = false;
-
+    holding = false; dead = false; frozen = false;
+    lastHapticStage = -1; flashed = false;
     newSeeds();
     clearCanvas();
-
-    replayFrames = [];
-    replayBestFrameUrl = null;
-
     if (showHint) hint.style.display = "flex";
     else hint.style.display = "none";
-
     setUIIdle();
   }
 
   function dangerFeedback(msHeld){
-    if (msHeld < DANGER_MS) {
-      dangerPill.style.display = "none";
-      return;
-    }
+    if (msHeld < DANGER_MS) { dangerPill.style.display = "none"; return; }
     dangerPill.style.display = "inline-block";
 
     let stage = -1;
@@ -623,24 +519,12 @@
     }
   }
 
-  function buildMetaTags({ msHeld, pb, streak, creature, evo, died, safeHund, leftHund }){
-    const tags = [];
-    tags.push({ label: died ? "💀 Death" : "✨ Survived" });
-    if (!died) tags.push({ label: `${creature.rarity}` });
-    if (!died) tags.push({ label: `${evo.label}` });
-    if (!died) tags.push({ label: `${leftHund}s from death` });
-    if (died) tags.push({ label: `Safe: ${safeHund}s` });
-    if (pb) tags.push({ label: `PB: ${pb.toFixed(2)}s` });
-    if (streak) tags.push({ label: `Streak: ${streak}d` });
-    return tags;
-  }
-
   function renderMeta(tags){
     metaEl.innerHTML = "";
-    for (const t of tags) {
+    for (const label of tags) {
       const span = document.createElement("span");
       span.className = "tag";
-      span.textContent = t.label;
+      span.textContent = label;
       metaEl.appendChild(span);
     }
   }
@@ -656,34 +540,30 @@
 
   function showResultCard({ died, msHeld, creature, evo }){
     const pb = (!died && msHeld >= SCORE_FLOOR_MS) ? updatePB(msHeld) : (parseFloat(localStorage.getItem(LS_PB) || "0") || 0);
-
-    let streak = parseInt(localStorage.getItem(LS_STREAK) || "0", 10);
-    const safeMs = Math.max(0, Math.min(MAX_MS - 1, lastSafeMs)); // for death screen
-    const safeHund = toHundredths(safeMs);
+    const streak = parseInt(localStorage.getItem(LS_STREAK) || "0", 10);
+    const safeHund = toHundredths(Math.max(0, Math.min(MAX_MS - 1, lastSafeMs)));
     const scoreStr = toHundredths(msHeld);
     const leftHund = toHundredths(Math.max(0, MAX_MS - msHeld));
-
-    lastScoreStr = scoreStr;
 
     if (died) {
       creatureEl.textContent = "💀";
       headlineEl.textContent = microTitle(msHeld, true);
       subtitleEl.textContent = `You held too long. Death at 10.00s.`;
-      renderMeta(buildMetaTags({ msHeld, pb, streak, creature:{rarity:""}, evo:{label:""}, died:true, safeHund, leftHund }));
-      lastResultText = `💀 PsyHold: I died (held too long). My last safe moment was ${safeHund}s. ${challengeLine(scoreStr, true)}\nPlay: ${location.href}`;
+      renderMeta([`💀 Death`, `Safe: ${safeHund}s`, pb ? `PB: ${pb.toFixed(2)}s` : null, streak ? `Streak: ${streak}d` : null].filter(Boolean));
+      lastResultText = `💀 PsyHold: I died (held too long). Last safe moment: ${safeHund}s. ${challengeLine(scoreStr, true)}\nPlay: ${location.href}`;
       hapticNotif("error");
     } else if (msHeld < CREATURE_START_MS) {
       creatureEl.textContent = "✨";
       headlineEl.textContent = microTitle(msHeld, false);
       subtitleEl.textContent = `No creature. Release closer to 10.00s.`;
-      renderMeta(buildMetaTags({ msHeld, pb, streak, creature:{rarity:""}, evo:{label:""}, died:false, safeHund, leftHund }));
+      renderMeta([`✨ Survived`, pb ? `PB: ${pb.toFixed(2)}s` : null, streak ? `Streak: ${streak}d` : null].filter(Boolean));
       lastResultText = `✨ PsyHold: I chickened out. ${challengeLine(scoreStr, false)}\nPlay: ${location.href}`;
       hapticNotif("warning");
     } else {
       creatureEl.textContent = creature.emoji;
       headlineEl.textContent = microTitle(msHeld, false);
       subtitleEl.textContent = `Score: ${scoreStr}s • ${creature.rarity} ${creature.name} (${evo.label})`;
-      renderMeta(buildMetaTags({ msHeld, pb, streak, creature, evo, died:false, safeHund, leftHund }));
+      renderMeta([`✨ Survived`, `${creature.rarity}`, `${evo.label}`, `${leftHund}s from death`, pb ? `PB: ${pb.toFixed(2)}s` : null, streak ? `Streak: ${streak}d` : null].filter(Boolean));
       lastResultText = `${creature.emoji} PsyHold: ${scoreStr}s • ${creature.rarity} ${creature.name} (${evo.label}). ${challengeLine(scoreStr, false)}\nPlay: ${location.href}`;
       hapticNotif("success");
     }
@@ -700,21 +580,18 @@
     statusPill.textContent = "TOO FAR";
     dangerPill.style.display = "none";
 
-    // brutal visual
     deathCrack();
     muteHeartbeat();
 
-    lastDied = true;
-    lastMsHeld = msHeld;
     showResultCard({ died:true, msHeld, creature:null, evo:null });
   }
 
   function startHold(){
-    if (result.style.display === "flex" || imgModal.style.display === "flex") return;
+    if (result.style.display === "flex") return;
 
     ensureAudio();
     if (audioCtx && audioCtx.state === "suspended") { audioCtx.resume().catch(()=>{}); }
-    audioEnabled = true; // starts after first user interaction
+    audioEnabled = true;
 
     holding = true;
     dead = false;
@@ -722,16 +599,7 @@
     holdStart = performance.now();
     lastHapticStage = -1;
     flashed = false;
-
     lastSafeMs = 0;
-    lastCreature = null;
-    lastResultText = "";
-    lastScoreStr = "";
-    lastMsHeld = 0;
-    lastDied = false;
-
-    replayFrames = [];
-    replayBestFrameUrl = null;
 
     setUIPlaying();
     if (!rafId) rafId = requestAnimationFrame(loop);
@@ -745,22 +613,12 @@
     const msHeld = performance.now() - holdStart;
     muteHeartbeat();
 
-    lastMsHeld = msHeld;
+    if (msHeld >= MAX_MS) { dieNow(msHeld); return; }
 
-    if (msHeld >= MAX_MS) {
-      dieNow(msHeld);
-      return;
-    }
-
-    lastDied = false;
-
-    let creature = null;
-    let evo = null;
-
+    let creature = null, evo = null;
     if (msHeld >= CREATURE_START_MS) {
       creature = pickCreature(msHeld);
       evo = evolutionFor(msHeld);
-      lastCreature = creature;
     }
 
     showResultCard({ died:false, msHeld, creature, evo });
@@ -769,29 +627,20 @@
   function loop(now){
     if (holding && !dead) {
       const msHeld = now - holdStart;
-
-      // Track last safe moment for death screen (hundredths feel)
       lastSafeMs = Math.min(MAX_MS - 1, msHeld);
 
       if (msHeld >= MAX_MS) {
         dieNow(msHeld);
       } else {
         renderPsy(msHeld);
-
-        // Keyframe capture for replay
-        maybeCaptureFrame(msHeld);
-
-        // Danger feedback (haptics + DANGER pill)
         dangerFeedback(msHeld);
 
-        // Near-death flash (once)
         if (!flashed && msHeld >= FLASH_MS) {
           flashed = true;
           nearDeathFlash();
           hapticImpact("heavy");
         }
 
-        // Heartbeat audio (optional)
         setHeartbeat(msHeld);
       }
     }
@@ -824,46 +673,17 @@
     resetRound();
   });
 
-  replayBtn.addEventListener('click', ()=>{
-    if (!replayBestFrameUrl && replayFrames.length) replayBestFrameUrl = replayFrames[replayFrames.length-1].url;
-    if (!replayBestFrameUrl) {
-      showToast("No replay captured");
-      return;
-    }
-    imgPreview.src = replayBestFrameUrl;
-    imgModal.style.display = "flex";
-  });
-
   shareBtn.addEventListener('click', ()=>{
     // Count streak on first share of the day
     const newStreak = bumpStreakIfFirstShareToday();
     const pb = parseFloat(localStorage.getItem(LS_PB) || "0") || 0;
 
-    // Enrich share text slightly (viral)
     let extra = "";
     if (newStreak) extra += ` • ${newStreak}d streak`;
     if (pb) extra += ` • PB ${pb.toFixed(2)}s`;
 
     const msg = lastResultText ? (lastResultText + extra) : `PsyHold: can you get close to 10.00s without dying?\nPlay: ${location.href}`;
     shareText(msg);
-  });
-
-  // Telegram-friendly "Save image": show preview modal (downloads can fail in webview)
-  saveBtn.addEventListener("click", () => {
-    try {
-      const dataUrl = canvas.toDataURL("image/png");
-      imgPreview.src = dataUrl;
-      imgModal.style.display = "flex";
-    } catch(e) {
-      showToast("Can't export image here");
-    }
-  });
-
-  closeImgModal.addEventListener("click", ()=>{
-    imgModal.style.display = "none";
-  });
-  imgModal.addEventListener("click", (e)=>{
-    if (e.target === imgModal) imgModal.style.display = "none";
   });
 
   // Tap outside result card closes (fast loop)
