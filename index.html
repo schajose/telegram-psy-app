@@ -1,58 +1,226 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-  <title>PsyThumb</title>
+  <title>PsyHold</title>
   <style>
     html, body { margin:0; height:100%; background:#000; overflow:hidden; touch-action:none; }
     #c { width:100vw; height:100vh; display:block; }
+
     .hud{
       position:fixed; left:12px; top:12px; right:12px;
-      color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
       pointer-events:none;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color:#fff;
     }
     .pill{
-      pointer-events:none;
       background:rgba(255,255,255,.12);
       border:1px solid rgba(255,255,255,.2);
       padding:8px 12px; border-radius:999px;
       backdrop-filter: blur(10px);
-      font-size:14px;
+      font-size:14px; opacity:.95;
+      pointer-events:none;
+      white-space:nowrap;
     }
-    .btnbar { position:fixed; left:12px; bottom:12px; right:12px; display:flex; gap:10px; }
+
+    #hint {
+      position:fixed; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      text-align:center;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color:#fff;
+      pointer-events:none;
+      background:radial-gradient(ellipse at center, rgba(0,0,0,.25), rgba(0,0,0,.75));
+      backdrop-filter: blur(6px);
+    }
+    #hint .box{
+      width:min(540px, calc(100vw - 28px));
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:24px;
+      padding:18px 16px;
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+    }
+    #hint .title{ font-size:22px; font-weight:900; letter-spacing:.2px; }
+    #hint .sub{ margin-top:8px; opacity:.92; line-height:1.35; }
+    #hint .sub b{ opacity:1; }
+
+    #result {
+      position:fixed; inset:0;
+      display:none; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.58);
+      backdrop-filter: blur(10px);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color:#fff;
+    }
+    #result .card{
+      width:min(560px, calc(100vw - 28px));
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:26px;
+      padding:18px;
+      box-shadow:0 24px 80px rgba(0,0,0,.55);
+      text-align:center;
+    }
+    #creature {
+      font-size:72px;
+      line-height:1.1;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
+    }
+    #headline {
+      margin-top:6px;
+      font-size:22px;
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+    #scoreline {
+      margin-top:6px;
+      font-size:16px;
+      opacity:.92;
+    }
+    #rarity {
+      margin-top:6px;
+      font-size:14px;
+      opacity:.85;
+    }
+    .btnrow{
+      display:flex; gap:10px; margin-top:14px;
+    }
     button{
       flex:1;
-      border:0; border-radius:14px;
+      border:0;
+      border-radius:16px;
       padding:12px 14px;
+      color:#fff;
+      font-weight:800;
+      letter-spacing:.2px;
       background:rgba(255,255,255,.14);
-      color:#fff; font-weight:600;
       backdrop-filter: blur(10px);
     }
     button:active{ transform: translateY(1px); }
+    .secondary{
+      background:rgba(255,255,255,.10);
+      font-weight:700;
+      opacity:.95;
+    }
+
+    /* small “danger pulse” indicator */
+    #dangerPill{
+      display:none;
+      animation: pulse 0.7s infinite;
+    }
+    @keyframes pulse{
+      0%,100%{ transform: scale(1); opacity:.9; }
+      50%{ transform: scale(1.03); opacity:1; }
+    }
   </style>
 </head>
 <body>
   <canvas id="c"></canvas>
+
   <div class="hud">
-    <div class="pill" id="status">Daumen drauf halten 👇</div>
-    <div class="pill" id="timer">0.0s</div>
+    <div class="pill" id="statusPill">Hold to charge 🌈</div>
+    <div class="pill" id="dangerPill">DANGER</div>
   </div>
-  <div class="btnbar">
-    <button id="regen">Neu</button>
-    <button id="save">Bild speichern</button>
+
+  <div id="hint">
+    <div class="box">
+      <div class="title">PsyHold</div>
+      <div class="sub">
+        Press & hold anywhere.<br/>
+        The closer you get to <b>10.00s</b>, the rarer the creature.<br/>
+        But if you hold too long… you die.
+      </div>
+      <div class="sub" style="margin-top:10px; opacity:.85;">
+        No timer. Pure instinct.
+      </div>
+    </div>
+  </div>
+
+  <div id="result">
+    <div class="card">
+      <div id="creature">🦄</div>
+      <div id="headline">NICE.</div>
+      <div id="scoreline"></div>
+      <div id="rarity"></div>
+      <div class="btnrow">
+        <button id="shareBtn">Share</button>
+        <button id="saveBtn" class="secondary">Save image</button>
+      </div>
+      <div class="btnrow">
+        <button id="againBtn" class="secondary">Play again</button>
+      </div>
+    </div>
   </div>
 
 <script>
 (() => {
+  // ---------- Telegram helpers ----------
+  const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+  if (tg) {
+    try { tg.ready(); tg.expand(); } catch(e) {}
+  }
+  function haptic(type) {
+    if (!tg || !tg.HapticFeedback) return;
+    try {
+      // type: 'light' | 'medium' | 'heavy'
+      tg.HapticFeedback.impactOccurred(type);
+    } catch(e) {}
+  }
+  function hapticNotif(type) {
+    if (!tg || !tg.HapticFeedback) return;
+    try {
+      // type: 'success' | 'warning' | 'error'
+      tg.HapticFeedback.notificationOccurred(type);
+    } catch(e) {}
+  }
+  function shareText(text) {
+    // Best-effort sharing:
+    // 1) Telegram openTelegramLink
+    // 2) Web Share API
+    // 3) Copy to clipboard
+    const encodedText = encodeURIComponent(text);
+    const url = `https://t.me/share/url?text=${encodedText}`;
+
+    if (tg && typeof tg.openTelegramLink === "function") {
+      tg.openTelegramLink(url);
+      return;
+    }
+
+    if (navigator.share) {
+      navigator.share({ text }).catch(()=>{});
+      return;
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(()=>{});
+    } else {
+      prompt("Copy this:", text);
+    }
+  }
+
+  // ---------- DOM ----------
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d', { alpha:false });
-  const statusEl = document.getElementById('status');
-  const timerEl  = document.getElementById('timer');
-  const regenBtn = document.getElementById('regen');
-  const saveBtn  = document.getElementById('save');
 
+  const hint = document.getElementById('hint');
+  const result = document.getElementById('result');
+
+  const statusPill = document.getElementById('statusPill');
+  const dangerPill = document.getElementById('dangerPill');
+
+  const creatureEl = document.getElementById('creature');
+  const headlineEl = document.getElementById('headline');
+  const scorelineEl = document.getElementById('scoreline');
+  const rarityEl = document.getElementById('rarity');
+
+  const shareBtn = document.getElementById('shareBtn');
+  const saveBtn  = document.getElementById('saveBtn');
+  const againBtn = document.getElementById('againBtn');
+
+  // ---------- Canvas sizing ----------
   let W=0,H=0, dpr=1;
   function resize(){
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -65,110 +233,347 @@
   addEventListener('resize', resize);
   resize();
 
-  // Simple pseudo-noise via sin/cos fields (cheap & trippy)
+  // ---------- Game settings ----------
+  const MAX_MS = 10_000;         // death at 10 seconds
+  const DANGER_MS = 7_000;       // start danger feedback
+  const MAGIC_MS  = 8_500;       // start creatures
+  const LEGEND_MS = 9_700;       // insane close
+  const CLOSE_MS  = 9_300;       // very close
+
+  // no timer UI; score uses hundredths
+  const toHundredths = (ms) => (Math.floor((ms/1000) * 100) / 100).toFixed(2);
+
+  // ---------- Psychedelic renderer (blocky but fast + trippy) ----------
   const rand = (a,b)=>a+Math.random()*(b-a);
   let seedA = rand(0, 1000), seedB = rand(0, 1000), seedC = rand(0, 1000);
 
-  let holding = false;
-  let frozen = false;
-  let t0 = 0;
-  let last = performance.now();
+  function newSeeds(){
+    seedA = rand(0,1000); seedB = rand(0,1000); seedC = rand(0,1000);
+  }
 
-  function draw(now){
-    const dt = (now - last) / 1000; last = now;
+  function renderPsy(msHeld){
+    const p = Math.max(0, Math.min(1, msHeld / MAX_MS)); // 0..1
+    // Make intensity explode near the end (addictive)
+    const expo = Math.pow(p, 2.6);
+    const t = (msHeld / 1000);
 
-    if (holding && !frozen) {
-      const t = (now - t0) / 1000;
-      timerEl.textContent = t.toFixed(1) + "s";
-      // Speed / intensity based on hold time (caps)
-      const sp = 0.35 + Math.min(2.0, t * 0.35);
-      const zoom = 0.9 + Math.min(1.6, t * 0.12);
+    const sp = 0.35 + expo * 2.9;
+    const zoom = 0.9 + expo * 2.1;
 
-      // Render in blocks for speed
-      const block = Math.max(2, Math.floor(6 * dpr));
-      for (let y=0; y<H; y+=block){
-        for (let x=0; x<W; x+=block){
-          const nx = (x/W - 0.5) * 2 * zoom;
-          const ny = (y/H - 0.5) * 2 * zoom;
+    // Slight wobble near death
+    const wobble = (p > 0.85) ? (Math.sin(t*18) * (p - 0.85) * 0.06) : 0;
+    const cx = W/2 + wobble * W;
+    const cy = H/2 + Math.cos(t*17) * wobble * H;
 
-          const v =
-            Math.sin(nx*3 + seedA + t*sp) +
-            Math.cos(ny*4 + seedB - t*sp*0.9) +
-            Math.sin((nx+ny)*2 + seedC + t*sp*1.2);
+    // Render in blocks for speed
+    const block = Math.max(2, Math.floor((7 - expo*4.5) * dpr)); // tighter blocks near end
+    for (let y=0; y<H; y+=block){
+      for (let x=0; x<W; x+=block){
+        const nx = ((x - cx)/W) * 2 * zoom;
+        const ny = ((y - cy)/H) * 2 * zoom;
 
-          // Map v to hue-ish RGB
-          const r = 128 + 127*Math.sin(v + t*1.2);
-          const g = 128 + 127*Math.sin(v + 2.094 + t*1.0);
-          const b = 128 + 127*Math.sin(v + 4.188 + t*0.8);
+        const v =
+          Math.sin(nx*3 + seedA + t*sp) +
+          Math.cos(ny*4 + seedB - t*sp*0.92) +
+          Math.sin((nx+ny)*2 + seedC + t*sp*1.15);
 
-          ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
-          ctx.fillRect(x, y, block, block);
-        }
+        const r = 128 + 127*Math.sin(v + t*1.25);
+        const g = 128 + 127*Math.sin(v + 2.094 + t*1.05);
+        const b = 128 + 127*Math.sin(v + 4.188 + t*0.85);
+
+        ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
+        ctx.fillRect(x, y, block, block);
       }
-
-      // subtle vignette
-      const grad = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.1, W/2,H/2, Math.min(W,H)*0.7);
-      grad.addColorStop(0, "rgba(0,0,0,0)");
-      grad.addColorStop(1, "rgba(0,0,0,0.35)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0,0,W,H);
     }
 
-    requestAnimationFrame(draw);
-  }
-  requestAnimationFrame(draw);
+    // Vignette stronger near end
+    const g = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.12, W/2,H/2, Math.min(W,H)*0.75);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, `rgba(0,0,0,${0.22 + expo*0.35})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
 
-  function startHold(){
-    holding = true; frozen = false;
-    t0 = performance.now();
-    timerEl.textContent = "0.0s";
-    statusEl.textContent = "Halten… 🌈";
+    // Danger tint near the end
+    if (p > 0.70) {
+      ctx.fillStyle = `rgba(255, 0, 60, ${(p-0.70)*0.25})`;
+      ctx.fillRect(0,0,W,H);
+    }
   }
 
-  function endHold(){
+  function deathFlash(){
+    // quick “crack” / flash
+    ctx.fillStyle = "rgba(255,0,80,.35)";
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = "rgba(255,255,255,.08)";
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // ---------- Creatures (emoji now; swap to GIF/images later) ----------
+  const CREATURES = [
+    { emoji:"🦄", name:"Unicorn", rarity:"Mythic" },
+    { emoji:"🐉", name:"Dragon", rarity:"Mythic" },
+    { emoji:"🧚", name:"Fairy", rarity:"Epic" },
+    { emoji:"🦋", name:"Lumen Moth", rarity:"Epic" },
+    { emoji:"👁️", name:"Cosmic Eye", rarity:"Epic" },
+    { emoji:"🐍", name:"Ouroboros", rarity:"Rare" },
+    { emoji:"🦁", name:"Chimera", rarity:"Rare" },
+    { emoji:"🐺", name:"Moon Wolf", rarity:"Rare" },
+    { emoji:"🦊", name:"Fox Spirit", rarity:"Uncommon" },
+    { emoji:"🐙", name:"Void Octo", rarity:"Uncommon" },
+    { emoji:"🪼", name:"Jelly Wisp", rarity:"Uncommon" },
+    { emoji:"🐸", name:"Trick Toad", rarity:"Common" }
+  ];
+
+  function pickCreature(msHeld){
+    // Boost rarity the closer you are to 10s.
+    const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
+    const expo = Math.pow(p, 3.2);
+
+    // Weighted buckets
+    const buckets = [
+      { filter: c => c.rarity === "Common",   w: 1.00 - expo*0.95 },
+      { filter: c => c.rarity === "Uncommon", w: 0.55 + expo*0.35 },
+      { filter: c => c.rarity === "Rare",     w: 0.15 + expo*0.50 },
+      { filter: c => c.rarity === "Epic",     w: 0.05 + expo*0.55 },
+      { filter: c => c.rarity === "Mythic",   w: 0.01 + expo*0.45 }
+    ];
+
+    // If REALLY close, force high bucket sometimes
+    if (msHeld >= LEGEND_MS && Math.random() < 0.60) {
+      const mythics = CREATURES.filter(c => c.rarity === "Mythic");
+      return mythics[(Math.random()*mythics.length)|0];
+    }
+    if (msHeld >= CLOSE_MS && Math.random() < 0.45) {
+      const epics = CREATURES.filter(c => c.rarity === "Epic" || c.rarity === "Mythic");
+      return epics[(Math.random()*epics.length)|0];
+    }
+
+    // Pick bucket
+    const total = buckets.reduce((s,b)=> s + Math.max(0,b.w), 0);
+    let r = Math.random() * total;
+    let chosenBucket = buckets[0];
+    for (const b of buckets) {
+      r -= Math.max(0,b.w);
+      if (r <= 0) { chosenBucket = b; break; }
+    }
+    const pool = CREATURES.filter(chosenBucket.filter);
+    return pool[(Math.random()*pool.length)|0];
+  }
+
+  function titleFor(msHeld){
+    if (msHeld >= LEGEND_MS) return "ABSURD CONTROL.";
+    if (msHeld >= CLOSE_MS)  return "SO CLOSE.";
+    if (msHeld >= MAGIC_MS)  return "NICE NERVES.";
+    return "GOOD TRY.";
+  }
+
+  function rarityLine(creature, msHeld){
+    const left = Math.max(0, (MAX_MS - msHeld));
+    const leftHund = Math.max(0, Math.floor((left/1000)*100)/100).toFixed(2);
+    return `${creature.rarity} • ${leftHund}s from death`;
+  }
+
+  // ---------- Game state ----------
+  let holding = false;
+  let dead = false;
+  let frozen = false;
+  let holdStart = 0;
+  let lastHapticStage = -1;
+  let rafId = null;
+
+  let lastResultText = "";
+  let lastCreature = null;
+
+  function setUIPlaying(){
+    hint.style.display = "none";
+    result.style.display = "none";
+    dangerPill.style.display = "none";
+    statusPill.textContent = "Hold… don’t die";
+  }
+
+  function setUIIdle(){
+    dangerPill.style.display = "none";
+    statusPill.textContent = "Hold to charge 🌈";
+  }
+
+  function showResult({ creature, msHeld, isDeath }) {
+    lastCreature = creature || null;
+
+    if (isDeath) {
+      creatureEl.textContent = "💀";
+      headlineEl.textContent = "YOU DIED.";
+      scorelineEl.textContent = "Held too long (10.00s+).";
+      rarityEl.textContent = "Tap Play again.";
+      lastResultText = `💀 I died in PsyHold (held too long). Can you beat me?`;
+      hapticNotif("error");
+    } else {
+      const score = toHundredths(msHeld);
+      creatureEl.textContent = creature.emoji;
+      headlineEl.textContent = titleFor(msHeld);
+      scorelineEl.textContent = `Score: ${score}s`;
+      rarityEl.textContent = `${creature.emoji} ${creature.name} • ${rarityLine(creature, msHeld)}`;
+      lastResultText = `${creature.emoji} PsyHold score: ${score}s (10.00s = death). ${creature.name} unlocked.`;
+      hapticNotif("success");
+    }
+
+    result.style.display = "flex";
+  }
+
+  function resetRound({ keepHint=false } = {}) {
+    holding = false;
+    dead = false;
+    frozen = false;
+    lastHapticStage = -1;
+    newSeeds();
+
+    // clear screen
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,W,H);
+
+    if (keepHint) hint.style.display = "flex";
+    else hint.style.display = "none";
+
+    setUIIdle();
+  }
+
+  function startHold() {
+    if (result.style.display === "flex") return; // ignore while result open
+    holding = true;
+    dead = false;
+    frozen = false;
+    holdStart = performance.now();
+    lastHapticStage = -1;
+    setUIPlaying();
+    if (!rafId) rafId = requestAnimationFrame(loop);
+  }
+
+  function dieNow(msHeld){
+    if (dead) return;
+    dead = true;
+    holding = false;
+    frozen = true;
+    dangerPill.style.display = "none";
+    statusPill.textContent = "TOO FAR";
+    deathFlash();
+    showResult({ creature:null, msHeld, isDeath:true });
+  }
+
+  function releaseHold() {
     if (!holding) return;
     holding = false;
     frozen = true;
-    statusEl.textContent = "Bild eingefroren ✨ (speichern oder neu)";
+
+    const msHeld = performance.now() - holdStart;
+    if (msHeld >= MAX_MS) {
+      dieNow(msHeld);
+      return;
+    }
+
+    if (msHeld >= MAGIC_MS) {
+      const creature = pickCreature(msHeld);
+      showResult({ creature, msHeld, isDeath:false });
+    } else {
+      // Not enough = no creature, just try again message
+      creatureEl.textContent = "✨";
+      headlineEl.textContent = "NOT ENOUGH.";
+      scorelineEl.textContent = `Try closer to 10.00s.`;
+      rarityEl.textContent = `No timer. Pure instinct.`;
+      result.style.display = "flex";
+      lastResultText = `✨ PsyHold: I chickened out early. Dare you get closer to 10.00s?`;
+      hapticNotif("warning");
+    }
+
+    dangerPill.style.display = "none";
+    statusPill.textContent = "Hold to charge 🌈";
   }
 
-  // pointer events (touch+mouse)
+  function dangerFeedback(msHeld){
+    if (msHeld < DANGER_MS) {
+      dangerPill.style.display = "none";
+      return;
+    }
+    dangerPill.style.display = "inline-block";
+
+    // Haptic stages (increasing intensity)
+    // Stage thresholds: 7.0, 8.0, 8.7, 9.2, 9.6
+    const stages = [7000, 8000, 8700, 9200, 9600];
+    let stage = -1;
+    for (let i=0;i<stages.length;i++){
+      if (msHeld >= stages[i]) stage = i;
+    }
+    if (stage !== lastHapticStage) {
+      lastHapticStage = stage;
+      if (stage === 0) haptic("light");
+      if (stage === 1) haptic("medium");
+      if (stage >= 2) haptic("heavy");
+    }
+  }
+
+  function loop(now){
+    if (holding && !dead) {
+      const msHeld = now - holdStart;
+
+      if (msHeld >= MAX_MS) {
+        dieNow(msHeld);
+      } else {
+        renderPsy(msHeld);
+        dangerFeedback(msHeld);
+      }
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // ---------- Input ----------
   canvas.addEventListener('pointerdown', (e)=>{
     e.preventDefault();
-    canvas.setPointerCapture(e.pointerId);
+    try { canvas.setPointerCapture(e.pointerId); } catch(_) {}
     startHold();
   }, {passive:false});
 
   canvas.addEventListener('pointerup', (e)=>{
     e.preventDefault();
-    endHold();
+    releaseHold();
   }, {passive:false});
 
-  canvas.addEventListener('pointercancel', (e)=>{
-    endHold();
+  canvas.addEventListener('pointercancel', ()=>{
+    releaseHold();
   });
 
-  regenBtn.addEventListener('click', ()=>{
-    seedA = rand(0,1000); seedB = rand(0,1000); seedC = rand(0,1000);
-    frozen = false;
-    statusEl.textContent = "Daumen drauf halten 👇";
-    timerEl.textContent = "0.0s";
-    // clear
-    ctx.fillStyle = "#000"; ctx.fillRect(0,0,W,H);
+  // ---------- Buttons ----------
+  againBtn.addEventListener('click', ()=>{
+    result.style.display = "none";
+    resetRound();
+  });
+
+  shareBtn.addEventListener('click', ()=>{
+    if (!lastResultText) return;
+    shareText(lastResultText);
   });
 
   saveBtn.addEventListener('click', ()=>{
-    // Export current canvas
+    // Save current canvas as PNG
     canvas.toBlob((blob)=>{
       if (!blob) return;
       const a = document.createElement('a');
       const url = URL.createObjectURL(blob);
       a.href = url;
-      a.download = `psythumb_${Date.now()}.png`;
+      a.download = `psyhold_${Date.now()}.png`;
       a.click();
-      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      setTimeout(()=>URL.revokeObjectURL(url), 1200);
     }, "image/png");
   });
+
+  // Tap outside card closes result (quick loop)
+  result.addEventListener('click', (e)=>{
+    if (e.target === result) {
+      result.style.display = "none";
+      resetRound();
+    }
+  });
+
+  // ---------- Start ----------
+  resetRound({ keepHint:true });
+
 })();
 </script>
 </body>
