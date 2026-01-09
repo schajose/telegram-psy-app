@@ -191,24 +191,46 @@
     toastT = setTimeout(()=> toast.style.display = "none", 1200);
   }
 
-  function shareText(text) {
-    // Telegram-friendly share. Include the mini app URL so it spreads.
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(location.href)}&text=${encodeURIComponent(text)}`;
+function shareText(text) {
+  const shareUrl =
+    "https://t.me/share/url" +
+    "?url=" + encodeURIComponent(location.href) +
+    "&text=" + encodeURIComponent(text);
 
-    if (tg && typeof tg.openTelegramLink === "function") {
-      tg.openTelegramLink(shareUrl);
-      return;
-    }
-    if (navigator.share) {
-      navigator.share({ text, url: location.href }).catch(()=>{});
-      return;
-    }
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).then(()=>showToast("Copied to clipboard")).catch(()=>{});
-      return;
-    }
+  // Telegram Mini App API (best)
+  if (window.Telegram?.WebApp) {
+    const webapp = window.Telegram.WebApp;
+
+    try {
+      if (typeof webapp.openTelegramLink === "function") {
+        webapp.openTelegramLink(shareUrl);
+        return;
+      }
+    } catch (_) {}
+
+    try {
+      if (typeof webapp.openLink === "function") {
+        webapp.openLink(shareUrl);
+        return;
+      }
+    } catch (_) {}
+  }
+
+  // Browser fallbacks
+  try {
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
+    return;
+  } catch (_) {}
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert("Copied to clipboard");
+    }).catch(() => {});
+  } else {
     prompt("Copy this:", text);
   }
+}
+
 
   // =========================
   // DOM
@@ -703,3 +725,4 @@
 </script>
 </body>
 </html>
+
