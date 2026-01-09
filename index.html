@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>PsyThumb</title>
+  <style>
+    html, body { margin:0; height:100%; background:#000; overflow:hidden; touch-action:none; }
+    #c { width:100vw; height:100vh; display:block; }
+    .hud{
+      position:fixed; left:12px; top:12px; right:12px;
+      color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      pointer-events:none;
+    }
+    .pill{
+      pointer-events:none;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.2);
+      padding:8px 12px; border-radius:999px;
+      backdrop-filter: blur(10px);
+      font-size:14px;
+    }
+    .btnbar { position:fixed; left:12px; bottom:12px; right:12px; display:flex; gap:10px; }
+    button{
+      flex:1;
+      border:0; border-radius:14px;
+      padding:12px 14px;
+      background:rgba(255,255,255,.14);
+      color:#fff; font-weight:600;
+      backdrop-filter: blur(10px);
+    }
+    button:active{ transform: translateY(1px); }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="hud">
+    <div class="pill" id="status">Daumen drauf halten 👇</div>
+    <div class="pill" id="timer">0.0s</div>
+  </div>
+  <div class="btnbar">
+    <button id="regen">Neu</button>
+    <button id="save">Bild speichern</button>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha:false });
+  const statusEl = document.getElementById('status');
+  const timerEl  = document.getElementById('timer');
+  const regenBtn = document.getElementById('regen');
+  const saveBtn  = document.getElementById('save');
+
+  let W=0,H=0, dpr=1;
+  function resize(){
+    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    W = Math.floor(innerWidth * dpr);
+    H = Math.floor(innerHeight * dpr);
+    canvas.width = W; canvas.height = H;
+    canvas.style.width = innerWidth + "px";
+    canvas.style.height = innerHeight + "px";
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  // Simple pseudo-noise via sin/cos fields (cheap & trippy)
+  const rand = (a,b)=>a+Math.random()*(b-a);
+  let seedA = rand(0, 1000), seedB = rand(0, 1000), seedC = rand(0, 1000);
+
+  let holding = false;
+  let frozen = false;
+  let t0 = 0;
+  let last = performance.now();
+
+  function draw(now){
+    const dt = (now - last) / 1000; last = now;
+
+    if (holding && !frozen) {
+      const t = (now - t0) / 1000;
+      timerEl.textContent = t.toFixed(1) + "s";
+      // Speed / intensity based on hold time (caps)
+      const sp = 0.35 + Math.min(2.0, t * 0.35);
+      const zoom = 0.9 + Math.min(1.6, t * 0.12);
+
+      // Render in blocks for speed
+      const block = Math.max(2, Math.floor(6 * dpr));
+      for (let y=0; y<H; y+=block){
+        for (let x=0; x<W; x+=block){
+          const nx = (x/W - 0.5) * 2 * zoom;
+          const ny = (y/H - 0.5) * 2 * zoom;
+
+          const v =
+            Math.sin(nx*3 + seedA + t*sp) +
+            Math.cos(ny*4 + seedB - t*sp*0.9) +
+            Math.sin((nx+ny)*2 + seedC + t*sp*1.2);
+
+          // Map v to hue-ish RGB
+          const r = 128 + 127*Math.sin(v + t*1.2);
+          const g = 128 + 127*Math.sin(v + 2.094 + t*1.0);
+          const b = 128 + 127*Math.sin(v + 4.188 + t*0.8);
+
+          ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
+          ctx.fillRect(x, y, block, block);
+        }
+      }
+
+      // subtle vignette
+      const grad = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.1, W/2,H/2, Math.min(W,H)*0.7);
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(1, "rgba(0,0,0,0.35)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+    }
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  function startHold(){
+    holding = true; frozen = false;
+    t0 = performance.now();
+    timerEl.textContent = "0.0s";
+    statusEl.textContent = "Halten… 🌈";
+  }
+
+  function endHold(){
+    if (!holding) return;
+    holding = false;
+    frozen = true;
+    statusEl.textContent = "Bild eingefroren ✨ (speichern oder neu)";
+  }
+
+  // pointer events (touch+mouse)
+  canvas.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    startHold();
+  }, {passive:false});
+
+  canvas.addEventListener('pointerup', (e)=>{
+    e.preventDefault();
+    endHold();
+  }, {passive:false});
+
+  canvas.addEventListener('pointercancel', (e)=>{
+    endHold();
+  });
+
+  regenBtn.addEventListener('click', ()=>{
+    seedA = rand(0,1000); seedB = rand(0,1000); seedC = rand(0,1000);
+    frozen = false;
+    statusEl.textContent = "Daumen drauf halten 👇";
+    timerEl.textContent = "0.0s";
+    // clear
+    ctx.fillStyle = "#000"; ctx.fillRect(0,0,W,H);
+  });
+
+  saveBtn.addEventListener('click', ()=>{
+    // Export current canvas
+    canvas.toBlob((blob)=>{
+      if (!blob) return;
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = `psythumb_${Date.now()}.png`;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    }, "image/png");
+  });
+})();
+</script>
+</body>
+</html>
