@@ -8,7 +8,11 @@
     html, body { margin:0; height:100%; background:#000; overflow:hidden; touch-action:none; }
     #c { width:100vw; height:100vh; display:block; }
 
-    :root { --glass: rgba(255,255,255,.12); --glass2: rgba(255,255,255,.10); --stroke: rgba(255,255,255,.18); }
+    :root{
+      --glass: rgba(255,255,255,.12);
+      --glass2: rgba(255,255,255,.10);
+      --stroke: rgba(255,255,255,.18);
+    }
 
     .hud{
       position:fixed; left:12px; top:12px; right:12px;
@@ -31,12 +35,12 @@
       display:none;
       animation: pulse .7s infinite;
     }
-    @keyframes pulse{ 0%,100%{ transform:scale(1); opacity:.9; } 50%{ transform:scale(1.03); opacity:1; } }
+    @keyframes pulse{ 0%,100%{ transform:scale(1); opacity:.9; } 50%{ transform:scale(1.04); opacity:1; } }
 
     #hint{
       position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-      background:radial-gradient(ellipse at center, rgba(0,0,0,.15), rgba(0,0,0,.82));
-      backdrop-filter: blur(6px);
+      background:radial-gradient(ellipse at center, rgba(0,0,0,.10), rgba(0,0,0,.84));
+      backdrop-filter: blur(7px);
       color:#fff;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
       z-index:6;
@@ -51,21 +55,21 @@
       box-shadow:0 24px 80px rgba(0,0,0,.55);
       text-align:center;
     }
-    #hint .title{ font-size:26px; font-weight:950; letter-spacing:.2px; }
-    #hint .sub{ margin-top:10px; opacity:.92; line-height:1.35; font-size:15px; }
+    #hint .title{ font-size:28px; font-weight:950; letter-spacing:.2px; }
+    #hint .sub{ margin-top:10px; opacity:.93; line-height:1.38; font-size:15px; }
     #hint .sub b{ opacity:1; }
-    #hint .tiny{ margin-top:10px; opacity:.78; font-size:13px; }
+    #hint .tiny{ margin-top:10px; opacity:.78; font-size:13px; line-height:1.35; }
 
     #result{
       position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-      background:rgba(0,0,0,.62);
+      background:rgba(0,0,0,.64);
       backdrop-filter: blur(10px);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
       color:#fff;
       z-index:10;
     }
     #result .card{
-      width:min(680px, calc(100vw - 28px));
+      width:min(720px, calc(100vw - 28px));
       background:var(--glass2);
       border:1px solid var(--stroke);
       border-radius:28px;
@@ -73,18 +77,11 @@
       box-shadow:0 28px 100px rgba(0,0,0,.62);
       text-align:center;
     }
-    #creature{
-      font-size:78px; line-height:1.05;
-      filter: drop-shadow(0 16px 30px rgba(0,0,0,.40));
-    }
-    #headline{
-      margin-top:8px; font-size:22px; font-weight:950; letter-spacing:.2px;
-    }
-    #subtitle{
-      margin-top:6px; font-size:15px; opacity:.92; line-height:1.35;
-    }
+    #creature{ font-size:78px; line-height:1.05; filter: drop-shadow(0 16px 30px rgba(0,0,0,.40)); }
+    #headline{ margin-top:8px; font-size:22px; font-weight:950; letter-spacing:.2px; }
+    #subtitle{ margin-top:6px; font-size:15px; opacity:.92; line-height:1.35; }
     #meta{
-      margin-top:10px; font-size:13px; opacity:.80;
+      margin-top:10px; font-size:13px; opacity:.82;
       display:flex; justify-content:center; gap:10px; flex-wrap:wrap;
     }
     .tag{
@@ -101,13 +98,10 @@
     }
     button:active{ transform: translateY(1px); }
     .secondary{ background:rgba(255,255,255,.10); font-weight:800; opacity:.96; }
-    .ghost{ background:rgba(255,255,255,.08); font-weight:800; opacity:.92; }
 
     #toast{
       position:fixed; left:12px; right:12px; bottom:12px;
-      display:none;
-      z-index:30;
-      justify-content:center;
+      display:none; z-index:30; justify-content:center;
       pointer-events:none;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
       color:#fff;
@@ -138,10 +132,10 @@
         Press & hold anywhere.<br/>
         <b>No timer.</b> Pure instinct.<br/>
         Release close to <b>10.00s</b> to unlock rarer creatures.<br/>
-        But hold too long… you die.
+        Hold too long… you die.
       </div>
       <div class="tiny">
-        Tip: near-death haptics ramp up. Ride the edge.
+        Pro tip: stay <b>steady</b>. Your finger motion fuels the chaos.
       </div>
     </div>
   </div>
@@ -152,11 +146,8 @@
       <div id="headline">NICE NERVES.</div>
       <div id="subtitle">Score: 9.63s • Mythic Unicorn (Ascended)</div>
       <div id="meta"></div>
-
       <div class="btnrow">
         <button id="shareBtn">Share</button>
-      </div>
-      <div class="btnrow">
         <button id="againBtn" class="secondary">Play again</button>
       </div>
     </div>
@@ -166,9 +157,7 @@
 
 <script>
 (() => {
-  // =========================
-  // Telegram + UX helpers
-  // =========================
+  // ========= Telegram helpers =========
   const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
   if (tg) { try { tg.ready(); tg.expand(); } catch(e){} }
 
@@ -191,50 +180,26 @@
     toastT = setTimeout(()=> toast.style.display = "none", 1200);
   }
 
-function shareText(text) {
-  const shareUrl =
-    "https://t.me/share/url" +
-    "?url=" + encodeURIComponent(location.href) +
-    "&text=" + encodeURIComponent(text);
+  function shareText(text) {
+    const shareUrl =
+      "https://t.me/share/url" +
+      "?url=" + encodeURIComponent(location.href) +
+      "&text=" + encodeURIComponent(text);
 
-  // Telegram Mini App API (best)
-  if (window.Telegram?.WebApp) {
-    const webapp = window.Telegram.WebApp;
+    if (tg && typeof tg.openTelegramLink === "function") {
+      tg.openTelegramLink(shareUrl);
+      return;
+    }
+    try { window.open(shareUrl, "_blank", "noopener,noreferrer"); return; } catch(_) {}
 
-    try {
-      if (typeof webapp.openTelegramLink === "function") {
-        webapp.openTelegramLink(shareUrl);
-        return;
-      }
-    } catch (_) {}
-
-    try {
-      if (typeof webapp.openLink === "function") {
-        webapp.openLink(shareUrl);
-        return;
-      }
-    } catch (_) {}
-  }
-
-  // Browser fallbacks
-  try {
-    window.open(shareUrl, "_blank", "noopener,noreferrer");
-    return;
-  } catch (_) {}
-
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(() => {
-      alert("Copied to clipboard");
-    }).catch(() => {});
-  } else {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(()=>showToast("Copied to clipboard")).catch(()=>{});
+      return;
+    }
     prompt("Copy this:", text);
   }
-}
 
-
-  // =========================
-  // DOM
-  // =========================
+  // ========= DOM =========
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d', { alpha:false });
 
@@ -252,9 +217,7 @@ function shareText(text) {
   const shareBtn = document.getElementById('shareBtn');
   const againBtn = document.getElementById('againBtn');
 
-  // =========================
-  // Canvas sizing
-  // =========================
+  // ========= Canvas sizing =========
   let W=0,H=0,dpr=1;
   function resize(){
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -267,26 +230,30 @@ function shareText(text) {
   addEventListener('resize', resize);
   resize();
 
-  // =========================
-  // Game design knobs
-  // =========================
-  const MAX_MS = 10_000;              // death at >= 10.00s
-  const CREATURE_START_MS = 8_500;    // unlock creatures at >= 8.50s
-  const CLOSE_MS = 9_300;             // boosts
-  const LEGEND_MS = 9_700;            // insane zone
-  const FLASH_MS = 9_900;             // near-death flash cue
-
+  // ========= Game knobs (the "try again" engine) =========
+  const MAX_MS = 10_000;              // death
+  const CREATURE_START_MS = 8_500;    // creatures appear on release
   const DANGER_MS = 7_000;            // danger feedback begins
+  const CLOSE_MS  = 9_300;            // rarity boost
+  const LEGEND_MS = 9_700;            // insane boost
+  const GHOST_MS  = 9_050;            // show ghost creature hints
+  const FLASH_MS  = 9_900;            // near-death flash cue
+
   const HAPTIC_STAGES = [7000, 8000, 8700, 9200, 9600, 9850];
 
-  const SCORE_FLOOR_MS = 600;
+  // Movement -> chaos coupling (this is the "steady hand" addiction)
+  // Higher means shakier hands = more chaos (harder), calm hand = easier.
+  const MOVE_WINDOW_MS = 180;         // smoothing window
+  const MOVE_GAIN = 1.65;             // movement energy multiplier
+  const MOVE_FALLOFF = 0.90;          // smoothing
 
+  // ========= Score formatting =========
   const toHundredths = (ms) => (Math.floor((ms/1000) * 100) / 100).toFixed(2);
 
-  // Streak & PB (local only)
-  const LS_STREAK = "psyhold_streak_v1";
-  const LS_LASTDAY = "psyhold_lastday_v1";
-  const LS_PB = "psyhold_pb_v1";
+  // ========= Local streak & PB (tiny dopamine) =========
+  const LS_STREAK = "psyhold_streak_v2";
+  const LS_LASTDAY = "psyhold_lastday_v2";
+  const LS_PB = "psyhold_pb_v2";
 
   function dayKey(d=new Date()){
     const y = d.getFullYear();
@@ -299,7 +266,6 @@ function shareText(text) {
     const s = parseInt(localStorage.getItem(LS_STREAK) || "0", 10);
     const last = localStorage.getItem(LS_LASTDAY) || "";
     const today = dayKey();
-
     if (last === today) return s;
 
     const lastDate = last ? new Date(last + "T00:00:00") : null;
@@ -324,9 +290,8 @@ function shareText(text) {
     return pb;
   }
 
-  // =========================
-  // Creatures + evolution
-  // =========================
+  // ========= Creatures =========
+  // (Emoji now = zero-asset viral. Later you can swap to PNG/GIF.)
   const CREATURES = [
     { emoji:"🦄", name:"Unicorn", rarity:"Mythic" },
     { emoji:"🐉", name:"Dragon", rarity:"Mythic" },
@@ -361,57 +326,158 @@ function shareText(text) {
 
   function pickCreature(msHeld){
     const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
-    const expo = Math.pow(p, 3.15);
+    const expo = Math.pow(p, 3.1);
 
-    if (msHeld >= LEGEND_MS && Math.random() < 0.60) {
+    // Forced high-tier near death
+    if (msHeld >= LEGEND_MS && Math.random() < 0.62) {
       const mythics = CREATURES.filter(c => c.rarity === "Mythic");
       return mythics[(Math.random()*mythics.length)|0];
     }
-    if (msHeld >= CLOSE_MS && Math.random() < 0.45) {
+    if (msHeld >= CLOSE_MS && Math.random() < 0.48) {
       const hi = CREATURES.filter(c => c.rarity === "Epic" || c.rarity === "Mythic");
       return hi[(Math.random()*hi.length)|0];
     }
 
     const buckets = [
       { filter: c => c.rarity === "Common",   w: 1.00 - expo*0.95 },
-      { filter: c => c.rarity === "Uncommon", w: 0.55 + expo*0.35 },
-      { filter: c => c.rarity === "Rare",     w: 0.15 + expo*0.50 },
-      { filter: c => c.rarity === "Epic",     w: 0.05 + expo*0.55 },
+      { filter: c => c.rarity === "Uncommon", w: 0.55 + expo*0.38 },
+      { filter: c => c.rarity === "Rare",     w: 0.15 + expo*0.52 },
+      { filter: c => c.rarity === "Epic",     w: 0.05 + expo*0.58 },
       { filter: c => c.rarity === "Mythic",   w: 0.01 + expo*0.45 }
     ];
     const total = buckets.reduce((s,b)=> s + Math.max(0,b.w), 0);
     let r = Math.random() * total;
     let chosen = buckets[0];
-    for (const b of buckets) {
-      r -= Math.max(0,b.w);
-      if (r <= 0) { chosen = b; break; }
-    }
+    for (const b of buckets) { r -= Math.max(0,b.w); if (r <= 0) { chosen = b; break; } }
     const pool = CREATURES.filter(chosen.filter);
     return pool[(Math.random()*pool.length)|0];
   }
 
-  // =========================
-  // Psychedelic renderer
-  // =========================
+  // ========= Visual engine =========
   const rand = (a,b)=>a+Math.random()*(b-a);
   let seedA = rand(0, 1000), seedB = rand(0, 1000), seedC = rand(0, 1000);
-
   function newSeeds(){ seedA=rand(0,1000); seedB=rand(0,1000); seedC=rand(0,1000); }
   function clearCanvas(){ ctx.fillStyle="#000"; ctx.fillRect(0,0,W,H); }
 
-  function renderPsy(msHeld){
-    const p = Math.max(0, Math.min(1, msHeld / MAX_MS)); // 0..1
-    const expo = Math.pow(p, 2.7); // explosion near end
+  // Movement tracking (for "steady hand")
+  let ptrX = 0, ptrY = 0, ptrDown = false;
+  let lastMoveT = 0;
+  let moveEnergy = 0; // smoothed 0..?
+  let moveEnergyPeak = 0;
+
+  function updateMoveEnergy(x, y, now){
+    if (!lastMoveT) { lastMoveT = now; ptrX = x; ptrY = y; return; }
+    const dt = Math.max(1, now - lastMoveT);
+    const dx = x - ptrX;
+    const dy = y - ptrY;
+    ptrX = x; ptrY = y; lastMoveT = now;
+
+    // pixels per second (normalized)
+    const v = Math.sqrt(dx*dx + dy*dy) / dt; // px/ms
+    const sample = Math.min(2.5, v * 28);    // clamp
+    moveEnergy = moveEnergy * MOVE_FALLOFF + sample * (1 - MOVE_FALLOFF);
+    moveEnergyPeak = Math.max(moveEnergyPeak * 0.995, moveEnergy); // slow decay peak
+  }
+
+  // Core orb + rings (the "focus magnet")
+  function drawCore(msHeld, chaos, driftX, driftY){
+    const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
+    const expo = Math.pow(p, 2.5);
+
+    const cx = W/2 + driftX;
+    const cy = H/2 + driftY;
+
+    const baseR = Math.min(W,H) * 0.06;
+    const r = baseR * (1.0 + expo*2.2) * (1.0 + chaos*0.18);
+    const pulse = 0.5 + 0.5*Math.sin(msHeld/1000 * (2.2 + expo*6.5));
+    const alpha = 0.07 + expo*0.16;
+
+    // glow
+    const g = ctx.createRadialGradient(cx, cy, r*0.2, cx, cy, r*1.25);
+    g.addColorStop(0, `rgba(255,255,255,${alpha + pulse*0.06})`);
+    g.addColorStop(0.35, `rgba(120,255,240,${alpha*0.55})`);
+    g.addColorStop(0.7, `rgba(255,0,120,${alpha*0.22})`);
+    g.addColorStop(1, `rgba(0,0,0,0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, r*1.25, 0, Math.PI*2); ctx.fill();
+
+    // hard core
+    const g2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, r*0.45);
+    g2.addColorStop(0, `rgba(255,255,255,${0.14 + pulse*0.10})`);
+    g2.addColorStop(1, `rgba(0,0,0,0)`);
+    ctx.fillStyle = g2;
+    ctx.beginPath(); ctx.arc(cx, cy, r*0.45, 0, Math.PI*2); ctx.fill();
+
+    // rings (danger "language" without text)
+    if (p > 0.65) {
+      const rings = 2 + Math.floor(expo*4);
+      ctx.lineWidth = Math.max(1, 2*dpr);
+      for (let i=0; i<rings; i++){
+        const rr = r*(0.8 + i*0.34) * (1 + pulse*0.08);
+        ctx.strokeStyle = `rgba(255,255,255,${(0.06 + expo*0.08) * (1 - i*0.12)})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rr, 0, Math.PI*2);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Ghost creature tease (pre-reward)
+  function drawGhostCreature(msHeld, driftX, driftY){
+    if (msHeld < GHOST_MS) return;
+
+    const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
+    const expo = Math.pow(p, 3.0);
+
+    // flicker windows near end
     const t = msHeld / 1000;
+    const flicker = Math.max(0, Math.sin(t * (9 + expo*18)));
+    const show = (msHeld > 9300) ? (flicker > 0.15) : (flicker > 0.45);
+    if (!show) return;
 
-    const sp = 0.35 + expo * 3.1;
-    const zoom = 0.9 + expo * 2.15;
+    // Weighted "ghost set" (feels like you almost unlocked it)
+    const ghosts = ["🦄","🐉","🧚","👁️","🦋"];
+    const glyph = ghosts[(Math.random()*ghosts.length)|0];
 
-    const wobble = (p > 0.84) ? (Math.sin(t*18) * (p - 0.84) * 0.075) : 0;
-    const cx = W/2 + wobble * W;
-    const cy = H/2 + Math.cos(t*17) * wobble * H;
+    const cx = W/2 + driftX;
+    const cy = H/2 + driftY;
+    const yOff = Math.sin(t*4.2) * Math.min(H,W) * 0.02;
 
-    const block = Math.max(2, Math.floor((7 - expo*4.8) * dpr));
+    ctx.save();
+    ctx.globalAlpha = 0.06 + expo*0.18;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `${Math.floor((Math.min(W,H) / dpr) * (0.16 + expo*0.08))}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+    ctx.fillText(glyph, cx/dpr, (cy/dpr + yOff/dpr));
+    ctx.restore();
+  }
+
+  // Psychedelic field (with time deformation + instability)
+  function renderPsy(msHeld, chaos, driftX, driftY){
+    const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
+    const expo = Math.pow(p, 2.75);
+
+    // Time deformation: visuals slow down near end (but real time doesn't)
+    // -> makes people misjudge and die -> instant retry.
+    const timeWarp = 1.0 - Math.max(0, (p - 0.82)) * 0.55; // down to ~0.7
+    const t = (msHeld/1000) * timeWarp;
+
+    const sp = 0.35 + expo * 3.25;
+    const zoom = 0.92 + expo * 2.25;
+
+    // Instability grows with danger AND finger movement
+    const wob = (p > 0.78 ? (p - 0.78) : 0) * (0.12 + chaos*0.08);
+    const wobX = Math.sin(t*18) * wob * W;
+    const wobY = Math.cos(t*17) * wob * H;
+
+    const cx = W/2 + driftX + wobX;
+    const cy = H/2 + driftY + wobY;
+
+    // block size: tighter near end (feels "more intense")
+    const block = Math.max(2, Math.floor((7 - expo*4.9) * dpr));
+
+    // slight RGB split (danger)
+    const rgbSplit = (p > 0.80) ? ((p - 0.80) * 10 + chaos*0.6) : 0;
 
     for (let y=0; y<H; y+=block){
       for (let x=0; x<W; x+=block){
@@ -421,26 +487,38 @@ function shareText(text) {
         const v =
           Math.sin(nx*3 + seedA + t*sp) +
           Math.cos(ny*4 + seedB - t*sp*0.92) +
-          Math.sin((nx+ny)*2 + seedC + t*sp*1.16);
+          Math.sin((nx+ny)*2 + seedC + t*sp*1.18);
 
-        const r = 128 + 127*Math.sin(v + t*1.26);
-        const g = 128 + 127*Math.sin(v + 2.094 + t*1.06);
-        const b = 128 + 127*Math.sin(v + 4.188 + t*0.86);
+        // Colors fight each other near end (tension)
+        const bite = (p > 0.88) ? (p - 0.88) * 1.8 : 0;
+        const r = 128 + 127*Math.sin(v + t*1.28 + bite*1.1);
+        const g = 128 + 127*Math.sin(v + 2.094 + t*1.06 - bite*0.8);
+        const b = 128 + 127*Math.sin(v + 4.188 + t*0.86 + bite*0.4);
 
         ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
         ctx.fillRect(x, y, block, block);
       }
     }
 
-    const g = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.12, W/2,H/2, Math.min(W,H)*0.78);
-    g.addColorStop(0, "rgba(0,0,0,0)");
-    g.addColorStop(1, `rgba(0,0,0,${0.22 + expo*0.42})`);
-    ctx.fillStyle = g;
+    // vignette
+    const vg = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.10, W/2,H/2, Math.min(W,H)*0.80);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, `rgba(0,0,0,${0.24 + expo*0.46})`);
+    ctx.fillStyle = vg;
     ctx.fillRect(0,0,W,H);
 
+    // danger tint that increases with chaos
     if (p > 0.70) {
-      ctx.fillStyle = `rgba(255, 0, 70, ${(p-0.70)*0.22})`;
+      ctx.fillStyle = `rgba(255, 0, 70, ${(p-0.70)*(0.22 + chaos*0.08)})`;
       ctx.fillRect(0,0,W,H);
+    }
+
+    // tiny RGB split illusion (cheap)
+    if (rgbSplit > 0.001) {
+      ctx.globalAlpha = Math.min(0.10, rgbSplit*0.008);
+      ctx.drawImage(canvas, Math.floor(rgbSplit), 0);
+      ctx.drawImage(canvas, -Math.floor(rgbSplit), 0);
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -449,18 +527,18 @@ function shareText(text) {
     ctx.fillRect(0,0,W,H);
   }
 
-  function deathCrack(){
-    ctx.fillStyle = "rgba(255,0,90,.35)";
+  function deathCollapse(){
+    // color dies + crush
+    ctx.fillStyle = "rgba(0,0,0,.35)";
     ctx.fillRect(0,0,W,H);
-    ctx.fillStyle = "rgba(255,255,255,.06)";
+    ctx.fillStyle = "rgba(255,0,90,.18)";
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = "rgba(255,255,255,.04)";
     ctx.fillRect(0,0,W,H);
   }
 
-  // =========================
-  // Audio (soft heartbeat)
-  // =========================
+  // ========= Audio (soft heartbeat - optional, starts on interaction) =========
   let audioCtx = null, osc = null, gain = null, audioEnabled = false;
-
   function ensureAudio(){
     if (audioCtx) return;
     try {
@@ -474,35 +552,35 @@ function shareText(text) {
       osc.start();
     } catch(e) { audioCtx = null; }
   }
-
   function setHeartbeat(msHeld){
     if (!audioEnabled || !audioCtx || !osc || !gain) return;
     const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
     const expo = Math.pow(p, 2.3);
     const baseF = 70 + expo * 170;
     osc.frequency.setValueAtTime(baseF, audioCtx.currentTime);
-
     const vol = (msHeld < DANGER_MS) ? 0.0 : Math.min(0.05, (msHeld - DANGER_MS) / 3500 * 0.05);
     gain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.03);
   }
-
   function muteHeartbeat(){
     if (!gain || !audioCtx) return;
     gain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.03);
   }
 
-  // =========================
-  // Game state
-  // =========================
-  let holding = false, dead = false, frozen = false;
+  // ========= Game state =========
+  let holding = false, dead = false;
   let holdStart = 0;
   let rafId = null;
   let lastHapticStage = -1;
   let flashed = false;
 
-  // last run result
   let lastResultText = "";
   let lastSafeMs = 0;
+  let lastMsHeld = 0;
+  let lastCreature = null;
+
+  // drift: the world tries to slip away, you stabilize by staying steady
+  let driftX = 0, driftY = 0;
+  let driftVX = 0, driftVY = 0;
 
   function setUIIdle(){
     dangerPill.style.display = "none";
@@ -512,16 +590,26 @@ function shareText(text) {
     hint.style.display = "none";
     result.style.display = "none";
     dangerPill.style.display = "none";
-    statusPill.textContent = "Hold… don’t die";
+    statusPill.textContent = "Hold… stay steady";
   }
 
   function resetRound({ showHint=false } = {}){
-    holding = false; dead = false; frozen = false;
+    holding = false; dead = false;
     lastHapticStage = -1; flashed = false;
+    lastSafeMs = 0;
+    lastResultText = "";
+    lastMsHeld = 0;
+    lastCreature = null;
+
+    moveEnergy = 0; moveEnergyPeak = 0;
+    driftX = 0; driftY = 0; driftVX = 0; driftVY = 0;
+
     newSeeds();
     clearCanvas();
-    if (showHint) hint.style.display = "flex";
-    else hint.style.display = "none";
+
+    hint.style.display = showHint ? "flex" : "none";
+    result.style.display = "none";
+
     setUIIdle();
   }
 
@@ -541,9 +629,9 @@ function shareText(text) {
     }
   }
 
-  function renderMeta(tags){
+  function renderMeta(labels){
     metaEl.innerHTML = "";
-    for (const label of tags) {
+    for (const label of labels) {
       const span = document.createElement("span");
       span.className = "tag";
       span.textContent = label;
@@ -552,7 +640,7 @@ function shareText(text) {
   }
 
   function challengeLine(scoreStr, died){
-    if (died) return "I died. Can you survive closer to 10.00s?";
+    if (died) return "I died. Can you get closer to 10.00s and survive?";
     const score = parseFloat(scoreStr);
     if (score >= 9.80) return "I dare you to cross 9.90 without dying.";
     if (score >= 9.60) return "Beat 9.70 without dying.";
@@ -561,31 +649,54 @@ function shareText(text) {
   }
 
   function showResultCard({ died, msHeld, creature, evo }){
-    const pb = (!died && msHeld >= SCORE_FLOOR_MS) ? updatePB(msHeld) : (parseFloat(localStorage.getItem(LS_PB) || "0") || 0);
+    const pb = (!died) ? updatePB(msHeld) : (parseFloat(localStorage.getItem(LS_PB) || "0") || 0);
     const streak = parseInt(localStorage.getItem(LS_STREAK) || "0", 10);
+
     const safeHund = toHundredths(Math.max(0, Math.min(MAX_MS - 1, lastSafeMs)));
     const scoreStr = toHundredths(msHeld);
     const leftHund = toHundredths(Math.max(0, MAX_MS - msHeld));
+
+    const calm = Math.max(0, 1 - (moveEnergyPeak * MOVE_GAIN) / 3.0);
+    const calmLabel = `Steadiness: ${Math.round(calm*100)}%`;
 
     if (died) {
       creatureEl.textContent = "💀";
       headlineEl.textContent = microTitle(msHeld, true);
       subtitleEl.textContent = `You held too long. Death at 10.00s.`;
-      renderMeta([`💀 Death`, `Safe: ${safeHund}s`, pb ? `PB: ${pb.toFixed(2)}s` : null, streak ? `Streak: ${streak}d` : null].filter(Boolean));
-      lastResultText = `💀 PsyHold: I died (held too long). Last safe moment: ${safeHund}s. ${challengeLine(scoreStr, true)}\nPlay: ${location.href}`;
+      renderMeta([
+        `💀 Death`,
+        `Safe: ${safeHund}s`,
+        calmLabel,
+        pb ? `PB: ${pb.toFixed(2)}s` : null,
+        streak ? `Streak: ${streak}d` : null
+      ].filter(Boolean));
+      lastResultText = `💀 PsyHold: I died. Last safe moment ${safeHund}s. ${challengeLine(scoreStr, true)}\nPlay: ${location.href}`;
       hapticNotif("error");
     } else if (msHeld < CREATURE_START_MS) {
       creatureEl.textContent = "✨";
       headlineEl.textContent = microTitle(msHeld, false);
       subtitleEl.textContent = `No creature. Release closer to 10.00s.`;
-      renderMeta([`✨ Survived`, pb ? `PB: ${pb.toFixed(2)}s` : null, streak ? `Streak: ${streak}d` : null].filter(Boolean));
+      renderMeta([
+        `✨ Survived`,
+        calmLabel,
+        pb ? `PB: ${pb.toFixed(2)}s` : null,
+        streak ? `Streak: ${streak}d` : null
+      ].filter(Boolean));
       lastResultText = `✨ PsyHold: I chickened out. ${challengeLine(scoreStr, false)}\nPlay: ${location.href}`;
       hapticNotif("warning");
     } else {
       creatureEl.textContent = creature.emoji;
       headlineEl.textContent = microTitle(msHeld, false);
       subtitleEl.textContent = `Score: ${scoreStr}s • ${creature.rarity} ${creature.name} (${evo.label})`;
-      renderMeta([`✨ Survived`, `${creature.rarity}`, `${evo.label}`, `${leftHund}s from death`, pb ? `PB: ${pb.toFixed(2)}s` : null, streak ? `Streak: ${streak}d` : null].filter(Boolean));
+      renderMeta([
+        `✨ Survived`,
+        `${creature.rarity}`,
+        `${evo.label}`,
+        `${leftHund}s from death`,
+        calmLabel,
+        pb ? `PB: ${pb.toFixed(2)}s` : null,
+        streak ? `Streak: ${streak}d` : null
+      ].filter(Boolean));
       lastResultText = `${creature.emoji} PsyHold: ${scoreStr}s • ${creature.rarity} ${creature.name} (${evo.label}). ${challengeLine(scoreStr, false)}\nPlay: ${location.href}`;
       hapticNotif("success");
     }
@@ -597,18 +708,17 @@ function shareText(text) {
     if (dead) return;
     dead = true;
     holding = false;
-    frozen = true;
 
     statusPill.textContent = "TOO FAR";
     dangerPill.style.display = "none";
 
-    deathCrack();
+    deathCollapse();
     muteHeartbeat();
 
     showResultCard({ died:true, msHeld, creature:null, evo:null });
   }
 
-  function startHold(){
+  function startHold(now){
     if (result.style.display === "flex") return;
 
     ensureAudio();
@@ -617,22 +727,29 @@ function shareText(text) {
 
     holding = true;
     dead = false;
-    frozen = false;
-    holdStart = performance.now();
+    holdStart = now;
     lastHapticStage = -1;
     flashed = false;
+
     lastSafeMs = 0;
+    lastMsHeld = 0;
+    lastCreature = null;
+    lastResultText = "";
+
+    moveEnergy = 0; moveEnergyPeak = 0;
+    driftX = 0; driftY = 0; driftVX = 0; driftVY = 0;
 
     setUIPlaying();
     if (!rafId) rafId = requestAnimationFrame(loop);
   }
 
-  function releaseHold(){
+  function releaseHold(now){
     if (!holding) return;
     holding = false;
-    frozen = true;
 
-    const msHeld = performance.now() - holdStart;
+    const msHeld = now - holdStart;
+    lastMsHeld = msHeld;
+
     muteHeartbeat();
 
     if (msHeld >= MAX_MS) { dieNow(msHeld); return; }
@@ -641,6 +758,7 @@ function shareText(text) {
     if (msHeld >= CREATURE_START_MS) {
       creature = pickCreature(msHeld);
       evo = evolutionFor(msHeld);
+      lastCreature = creature;
     }
 
     showResultCard({ died:false, msHeld, creature, evo });
@@ -651,12 +769,41 @@ function shareText(text) {
       const msHeld = now - holdStart;
       lastSafeMs = Math.min(MAX_MS - 1, msHeld);
 
+      // chaos rises with time AND with movement energy
+      const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
+      const timeDanger = Math.max(0, p - 0.65) / 0.35; // 0..1 after 6.5s-ish
+      const chaos = Math.min(1, (timeDanger*0.85 + moveEnergy*0.25) * MOVE_GAIN);
+
+      // drift: world tries to slide away; steadiness reduces chaos and drift
+      // (illusion of control)
+      const pull = 0.0009 + timeDanger*0.0030;
+      driftVX += (rand(-1,1) * (0.05 + chaos*0.35)) * pull * W;
+      driftVY += (rand(-1,1) * (0.05 + chaos*0.35)) * pull * H;
+
+      // friction (but near death it becomes slippery)
+      const friction = 0.88 - timeDanger*0.20; // 0.68 near end
+      driftVX *= friction;
+      driftVY *= friction;
+
+      driftX += driftVX;
+      driftY += driftVY;
+
+      // clamp drift so it doesn't go insane
+      const clamp = Math.min(W,H) * (0.12 + chaos*0.06);
+      driftX = Math.max(-clamp, Math.min(clamp, driftX));
+      driftY = Math.max(-clamp, Math.min(clamp, driftY));
+
       if (msHeld >= MAX_MS) {
         dieNow(msHeld);
       } else {
-        renderPsy(msHeld);
+        renderPsy(msHeld, chaos, driftX, driftY);
+        drawCore(msHeld, chaos, driftX, driftY);
+        drawGhostCreature(msHeld, driftX, driftY);
+
+        // danger cues
         dangerFeedback(msHeld);
 
+        // near-death flash (once)
         if (!flashed && msHeld >= FLASH_MS) {
           flashed = true;
           nearDeathFlash();
@@ -666,49 +813,68 @@ function shareText(text) {
         setHeartbeat(msHeld);
       }
     }
+
     rafId = requestAnimationFrame(loop);
   }
 
-  // =========================
-  // Input
-  // =========================
+  // ========= Input =========
+  function canvasPoint(e){
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * dpr;
+    const y = (e.clientY - rect.top) * dpr;
+    return { x, y };
+  }
+
   canvas.addEventListener('pointerdown', (e)=>{
     e.preventDefault();
+    ptrDown = true;
+    const now = performance.now();
+    const p = canvasPoint(e);
+    updateMoveEnergy(p.x, p.y, now);
     try { canvas.setPointerCapture(e.pointerId); } catch(_) {}
-    startHold();
+    startHold(now);
+  }, {passive:false});
+
+  canvas.addEventListener('pointermove', (e)=>{
+    if (!ptrDown) return;
+    const now = performance.now();
+    const p = canvasPoint(e);
+    updateMoveEnergy(p.x, p.y, now);
   }, {passive:false});
 
   canvas.addEventListener('pointerup', (e)=>{
     e.preventDefault();
-    releaseHold();
+    ptrDown = false;
+    releaseHold(performance.now());
   }, {passive:false});
 
   canvas.addEventListener('pointercancel', ()=>{
-    releaseHold();
+    ptrDown = false;
+    releaseHold(performance.now());
   });
 
-  // =========================
-  // Buttons
-  // =========================
+  // ========= Buttons =========
   againBtn.addEventListener('click', ()=>{
     result.style.display = "none";
     resetRound();
   });
 
   shareBtn.addEventListener('click', ()=>{
-    // Count streak on first share of the day
     const newStreak = bumpStreakIfFirstShareToday();
     const pb = parseFloat(localStorage.getItem(LS_PB) || "0") || 0;
+
+    // Snacky, Telegram-friendly share line
+    // (short text = more clicks)
+    let line = lastResultText;
+    if (!line) line = `PsyHold: no timer. 10.00s = death. Beat me.\nPlay: ${location.href}`;
 
     let extra = "";
     if (newStreak) extra += ` • ${newStreak}d streak`;
     if (pb) extra += ` • PB ${pb.toFixed(2)}s`;
-
-    const msg = lastResultText ? (lastResultText + extra) : `PsyHold: can you get close to 10.00s without dying?\nPlay: ${location.href}`;
-    shareText(msg);
+    shareText(line + extra);
   });
 
-  // Tap outside result card closes (fast loop)
+  // Tap outside result closes (instant retry loop)
   result.addEventListener("click", (e)=>{
     if (e.target === result) {
       result.style.display = "none";
@@ -716,13 +882,9 @@ function shareText(text) {
     }
   });
 
-  // =========================
-  // Start
-  // =========================
+  // ========= Boot =========
   resetRound({ showHint:true });
-
 })();
 </script>
 </body>
 </html>
-
