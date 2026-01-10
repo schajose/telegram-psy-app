@@ -8,11 +8,7 @@
     html, body { margin:0; height:100%; background:#000; overflow:hidden; touch-action:none; }
     #c { width:100vw; height:100vh; display:block; }
 
-    :root{
-      --glass: rgba(255,255,255,.12);
-      --glass2: rgba(255,255,255,.10);
-      --stroke: rgba(255,255,255,.18);
-    }
+    :root{ --glass: rgba(255,255,255,.12); --glass2: rgba(255,255,255,.10); --stroke: rgba(255,255,255,.18); }
 
     .hud{
       position:fixed; left:12px; top:12px; right:12px;
@@ -31,15 +27,12 @@
       pointer-events:none;
       white-space:nowrap;
     }
-    #dangerPill{
-      display:none;
-      animation: pulse .7s infinite;
-    }
+    #dangerPill{ display:none; animation:pulse .7s infinite; }
     @keyframes pulse{ 0%,100%{ transform:scale(1); opacity:.9; } 50%{ transform:scale(1.04); opacity:1; } }
 
     #hint{
       position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-      background:radial-gradient(ellipse at center, rgba(0,0,0,.10), rgba(0,0,0,.84));
+      background:radial-gradient(ellipse at center, rgba(0,0,0,.10), rgba(0,0,0,.86));
       backdrop-filter: blur(7px);
       color:#fff;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
@@ -47,7 +40,7 @@
       pointer-events:none;
     }
     #hint .card{
-      width:min(640px, calc(100vw - 28px));
+      width:min(660px, calc(100vw - 28px));
       background:var(--glass2);
       border:1px solid var(--stroke);
       border-radius:26px;
@@ -69,7 +62,7 @@
       z-index:10;
     }
     #result .card{
-      width:min(720px, calc(100vw - 28px));
+      width:min(740px, calc(100vw - 28px));
       background:var(--glass2);
       border:1px solid var(--stroke);
       border-radius:28px;
@@ -121,7 +114,7 @@
   <canvas id="c"></canvas>
 
   <div class="hud">
-    <div class="pill" id="statusPill">Hold to charge 🌈</div>
+    <div class="pill" id="statusPill">Hold to reveal ✨</div>
     <div class="pill" id="dangerPill">DANGER</div>
   </div>
 
@@ -131,11 +124,11 @@
       <div class="sub">
         Press & hold anywhere.<br/>
         <b>No timer.</b> Pure instinct.<br/>
-        Release close to <b>10.00s</b> to unlock rarer creatures.<br/>
+        Reveal the hidden creature — then release close to <b>10.00s</b>.<br/>
         Hold too long… you die.
       </div>
       <div class="tiny">
-        Pro tip: stay <b>steady</b>. Your finger motion fuels the chaos.
+        Pro tip: stay <b>steady</b>. Finger motion fuels the chaos.
       </div>
     </div>
   </div>
@@ -157,7 +150,9 @@
 
 <script>
 (() => {
-  // ========= Telegram helpers =========
+  // =======================
+  // Telegram helpers
+  // =======================
   const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
   if (tg) { try { tg.ready(); tg.expand(); } catch(e){} }
 
@@ -191,7 +186,6 @@
       return;
     }
     try { window.open(shareUrl, "_blank", "noopener,noreferrer"); return; } catch(_) {}
-
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(()=>showToast("Copied to clipboard")).catch(()=>{});
       return;
@@ -199,7 +193,9 @@
     prompt("Copy this:", text);
   }
 
-  // ========= DOM =========
+  // =======================
+  // DOM
+  // =======================
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d', { alpha:false });
 
@@ -217,7 +213,9 @@
   const shareBtn = document.getElementById('shareBtn');
   const againBtn = document.getElementById('againBtn');
 
-  // ========= Canvas sizing =========
+  // =======================
+  // Canvas sizing
+  // =======================
   let W=0,H=0,dpr=1;
   function resize(){
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -230,30 +228,35 @@
   addEventListener('resize', resize);
   resize();
 
-  // ========= Game knobs (the "try again" engine) =========
-  const MAX_MS = 10_000;              // death
-  const CREATURE_START_MS = 8_500;    // creatures appear on release
-  const DANGER_MS = 7_000;            // danger feedback begins
-  const CLOSE_MS  = 9_300;            // rarity boost
-  const LEGEND_MS = 9_700;            // insane boost
-  const GHOST_MS  = 9_050;            // show ghost creature hints
-  const FLASH_MS  = 9_900;            // near-death flash cue
+  // =======================
+  // Core knobs
+  // =======================
+  const MAX_MS = 10_000;
+  const CREATURE_START_MS = 8_500;
+  const DANGER_MS = 7_000;
+
+  const CLOSE_MS  = 9_300;
+  const LEGEND_MS = 9_700;
+
+  const REVEAL_START_MS = 200;     // reveal begins almost immediately
+  const REVEAL_CLEAR_MS = 6_800;   // by ~6.8s the hidden glyph is mostly visible
+  const GHOST_MS = 9_050;          // late tease flicker
+  const FLASH_MS = 9_900;
 
   const HAPTIC_STAGES = [7000, 8000, 8700, 9200, 9600, 9850];
 
-  // Movement -> chaos coupling (this is the "steady hand" addiction)
-  // Higher means shakier hands = more chaos (harder), calm hand = easier.
-  const MOVE_WINDOW_MS = 180;         // smoothing window
-  const MOVE_GAIN = 1.65;             // movement energy multiplier
-  const MOVE_FALLOFF = 0.90;          // smoothing
+  // Movement -> chaos coupling (steady hand)
+  const MOVE_FALLOFF = 0.90;
+  const MOVE_GAIN = 1.75;
 
-  // ========= Score formatting =========
   const toHundredths = (ms) => (Math.floor((ms/1000) * 100) / 100).toFixed(2);
 
-  // ========= Local streak & PB (tiny dopamine) =========
-  const LS_STREAK = "psyhold_streak_v2";
-  const LS_LASTDAY = "psyhold_lastday_v2";
-  const LS_PB = "psyhold_pb_v2";
+  // =======================
+  // Local PB + streak (micro dopamine)
+  // =======================
+  const LS_STREAK = "psyhold_streak_v3";
+  const LS_LASTDAY = "psyhold_lastday_v3";
+  const LS_PB = "psyhold_pb_v3";
 
   function dayKey(d=new Date()){
     const y = d.getFullYear();
@@ -290,8 +293,9 @@
     return pb;
   }
 
-  // ========= Creatures =========
-  // (Emoji now = zero-asset viral. Later you can swap to PNG/GIF.)
+  // =======================
+  // Creatures (emoji)
+  // =======================
   const CREATURES = [
     { emoji:"🦄", name:"Unicorn", rarity:"Mythic" },
     { emoji:"🐉", name:"Dragon", rarity:"Mythic" },
@@ -321,14 +325,13 @@
     if (msHeld >= 9300) return "EDGE WALKER.";
     if (msHeld >= 9000) return "STEADY HANDS.";
     if (msHeld >= CREATURE_START_MS) return "NICE NERVES.";
-    return "NOT ENOUGH.";
+    return "ALMOST…";
   }
 
   function pickCreature(msHeld){
     const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
     const expo = Math.pow(p, 3.1);
 
-    // Forced high-tier near death
     if (msHeld >= LEGEND_MS && Math.random() < 0.62) {
       const mythics = CREATURES.filter(c => c.rarity === "Mythic");
       return mythics[(Math.random()*mythics.length)|0];
@@ -353,17 +356,19 @@
     return pool[(Math.random()*pool.length)|0];
   }
 
-  // ========= Visual engine =========
+  // =======================
+  // Visual engine
+  // =======================
   const rand = (a,b)=>a+Math.random()*(b-a);
   let seedA = rand(0, 1000), seedB = rand(0, 1000), seedC = rand(0, 1000);
   function newSeeds(){ seedA=rand(0,1000); seedB=rand(0,1000); seedC=rand(0,1000); }
   function clearCanvas(){ ctx.fillStyle="#000"; ctx.fillRect(0,0,W,H); }
 
-  // Movement tracking (for "steady hand")
-  let ptrX = 0, ptrY = 0, ptrDown = false;
-  let lastMoveT = 0;
-  let moveEnergy = 0; // smoothed 0..?
-  let moveEnergyPeak = 0;
+  // Movement tracking
+  let ptrDown = false;
+  let ptrX = 0, ptrY = 0, lastMoveT = 0;
+  let moveEnergy = 0;     // smoothed
+  let moveEnergyPeak = 0; // peak (decays slowly)
 
   function updateMoveEnergy(x, y, now){
     if (!lastMoveT) { lastMoveT = now; ptrX = x; ptrY = y; return; }
@@ -372,112 +377,83 @@
     const dy = y - ptrY;
     ptrX = x; ptrY = y; lastMoveT = now;
 
-    // pixels per second (normalized)
     const v = Math.sqrt(dx*dx + dy*dy) / dt; // px/ms
-    const sample = Math.min(2.5, v * 28);    // clamp
+    const sample = Math.min(2.5, v * 28);
     moveEnergy = moveEnergy * MOVE_FALLOFF + sample * (1 - MOVE_FALLOFF);
-    moveEnergyPeak = Math.max(moveEnergyPeak * 0.995, moveEnergy); // slow decay peak
+    moveEnergyPeak = Math.max(moveEnergyPeak * 0.995, moveEnergy);
   }
 
-  // Core orb + rings (the "focus magnet")
-  function drawCore(msHeld, chaos, driftX, driftY){
-    const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
+  // Drift: subtle slipping world (feels alive)
+  let driftX = 0, driftY = 0, driftVX = 0, driftVY = 0;
+
+  // Hidden glyph for early engagement (pixel reveal)
+  const HIDDEN_SET = ["🦄","🐉","🧚","👁️","🦋","🐍","🦁","🐺","🦊","🐙","🪼"];
+  let hiddenGlyph = HIDDEN_SET[(Math.random()*HIDDEN_SET.length)|0];
+
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+  function drawCore(msHeld, chaos, dx, dy){
+    const p = clamp01(msHeld / MAX_MS);
     const expo = Math.pow(p, 2.5);
 
-    const cx = W/2 + driftX;
-    const cy = H/2 + driftY;
+    const cx = W/2 + dx;
+    const cy = H/2 + dy;
 
-    const baseR = Math.min(W,H) * 0.06;
-    const r = baseR * (1.0 + expo*2.2) * (1.0 + chaos*0.18);
+    const baseR = Math.min(W,H) * 0.055;
+    const r = baseR * (1.0 + expo*2.25) * (1.0 + chaos*0.18);
     const pulse = 0.5 + 0.5*Math.sin(msHeld/1000 * (2.2 + expo*6.5));
     const alpha = 0.07 + expo*0.16;
 
-    // glow
-    const g = ctx.createRadialGradient(cx, cy, r*0.2, cx, cy, r*1.25);
+    const g = ctx.createRadialGradient(cx, cy, r*0.2, cx, cy, r*1.3);
     g.addColorStop(0, `rgba(255,255,255,${alpha + pulse*0.06})`);
     g.addColorStop(0.35, `rgba(120,255,240,${alpha*0.55})`);
     g.addColorStop(0.7, `rgba(255,0,120,${alpha*0.22})`);
     g.addColorStop(1, `rgba(0,0,0,0)`);
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(cx, cy, r*1.25, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, r*1.3, 0, Math.PI*2); ctx.fill();
 
-    // hard core
     const g2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, r*0.45);
-    g2.addColorStop(0, `rgba(255,255,255,${0.14 + pulse*0.10})`);
+    g2.addColorStop(0, `rgba(255,255,255,${0.12 + pulse*0.12})`);
     g2.addColorStop(1, `rgba(0,0,0,0)`);
     ctx.fillStyle = g2;
     ctx.beginPath(); ctx.arc(cx, cy, r*0.45, 0, Math.PI*2); ctx.fill();
 
-    // rings (danger "language" without text)
-    if (p > 0.65) {
-      const rings = 2 + Math.floor(expo*4);
-      ctx.lineWidth = Math.max(1, 2*dpr);
-      for (let i=0; i<rings; i++){
-        const rr = r*(0.8 + i*0.34) * (1 + pulse*0.08);
-        ctx.strokeStyle = `rgba(255,255,255,${(0.06 + expo*0.08) * (1 - i*0.12)})`;
-        ctx.beginPath();
-        ctx.arc(cx, cy, rr, 0, Math.PI*2);
-        ctx.stroke();
-      }
+    // ring progress (no timer, but a *feeling* of progress)
+    const rings = 3;
+    const ringP = clamp01((msHeld - 400) / 8600); // 0..1
+    ctx.lineWidth = Math.max(1, 2*dpr);
+    for (let i=0; i<rings; i++){
+      const rr = r*(0.95 + i*0.36);
+      const a = 0.05 + expo*0.08;
+      ctx.strokeStyle = `rgba(255,255,255,${a * (1 - i*0.16)})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rr, -Math.PI/2, -Math.PI/2 + (Math.PI*2) * Math.max(0, ringP - i*0.25));
+      ctx.stroke();
     }
   }
 
-  // Ghost creature tease (pre-reward)
-  function drawGhostCreature(msHeld, driftX, driftY){
-    if (msHeld < GHOST_MS) return;
-
-    const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
-    const expo = Math.pow(p, 3.0);
-
-    // flicker windows near end
-    const t = msHeld / 1000;
-    const flicker = Math.max(0, Math.sin(t * (9 + expo*18)));
-    const show = (msHeld > 9300) ? (flicker > 0.15) : (flicker > 0.45);
-    if (!show) return;
-
-    // Weighted "ghost set" (feels like you almost unlocked it)
-    const ghosts = ["🦄","🐉","🧚","👁️","🦋"];
-    const glyph = ghosts[(Math.random()*ghosts.length)|0];
-
-    const cx = W/2 + driftX;
-    const cy = H/2 + driftY;
-    const yOff = Math.sin(t*4.2) * Math.min(H,W) * 0.02;
-
-    ctx.save();
-    ctx.globalAlpha = 0.06 + expo*0.18;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = `${Math.floor((Math.min(W,H) / dpr) * (0.16 + expo*0.08))}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
-    ctx.fillText(glyph, cx/dpr, (cy/dpr + yOff/dpr));
-    ctx.restore();
-  }
-
-  // Psychedelic field (with time deformation + instability)
-  function renderPsy(msHeld, chaos, driftX, driftY){
-    const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
+  function renderPsy(msHeld, chaos, dx, dy){
+    const p = clamp01(msHeld / MAX_MS);
     const expo = Math.pow(p, 2.75);
 
-    // Time deformation: visuals slow down near end (but real time doesn't)
-    // -> makes people misjudge and die -> instant retry.
-    const timeWarp = 1.0 - Math.max(0, (p - 0.82)) * 0.55; // down to ~0.7
+    // time deformation
+    const timeWarp = 1.0 - Math.max(0, (p - 0.82)) * 0.55;
     const t = (msHeld/1000) * timeWarp;
 
     const sp = 0.35 + expo * 3.25;
     const zoom = 0.92 + expo * 2.25;
 
-    // Instability grows with danger AND finger movement
-    const wob = (p > 0.78 ? (p - 0.78) : 0) * (0.12 + chaos*0.08);
+    const wob = (p > 0.78 ? (p - 0.78) : 0) * (0.12 + chaos*0.10);
     const wobX = Math.sin(t*18) * wob * W;
     const wobY = Math.cos(t*17) * wob * H;
 
-    const cx = W/2 + driftX + wobX;
-    const cy = H/2 + driftY + wobY;
+    const cx = W/2 + dx + wobX;
+    const cy = H/2 + dy + wobY;
 
-    // block size: tighter near end (feels "more intense")
     const block = Math.max(2, Math.floor((7 - expo*4.9) * dpr));
 
-    // slight RGB split (danger)
-    const rgbSplit = (p > 0.80) ? ((p - 0.80) * 10 + chaos*0.6) : 0;
+    const bite = (p > 0.88) ? (p - 0.88) * 1.8 : 0;
 
     for (let y=0; y<H; y+=block){
       for (let x=0; x<W; x+=block){
@@ -489,8 +465,6 @@
           Math.cos(ny*4 + seedB - t*sp*0.92) +
           Math.sin((nx+ny)*2 + seedC + t*sp*1.18);
 
-        // Colors fight each other near end (tension)
-        const bite = (p > 0.88) ? (p - 0.88) * 1.8 : 0;
         const r = 128 + 127*Math.sin(v + t*1.28 + bite*1.1);
         const g = 128 + 127*Math.sin(v + 2.094 + t*1.06 - bite*0.8);
         const b = 128 + 127*Math.sin(v + 4.188 + t*0.86 + bite*0.4);
@@ -500,26 +474,126 @@
       }
     }
 
-    // vignette
-    const vg = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.10, W/2,H/2, Math.min(W,H)*0.80);
+    const vg = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.10, W/2,H/2, Math.min(W,H)*0.82);
     vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, `rgba(0,0,0,${0.24 + expo*0.46})`);
+    vg.addColorStop(1, `rgba(0,0,0,${0.24 + expo*0.50})`);
     ctx.fillStyle = vg;
     ctx.fillRect(0,0,W,H);
 
-    // danger tint that increases with chaos
     if (p > 0.70) {
-      ctx.fillStyle = `rgba(255, 0, 70, ${(p-0.70)*(0.22 + chaos*0.08)})`;
+      ctx.fillStyle = `rgba(255, 0, 70, ${(p-0.70)*(0.22 + chaos*0.10)})`;
       ctx.fillRect(0,0,W,H);
     }
 
-    // tiny RGB split illusion (cheap)
-    if (rgbSplit > 0.001) {
-      ctx.globalAlpha = Math.min(0.10, rgbSplit*0.008);
-      ctx.drawImage(canvas, Math.floor(rgbSplit), 0);
-      ctx.drawImage(canvas, -Math.floor(rgbSplit), 0);
+    // subtle "glitch shear" near death
+    if (p > 0.90) {
+      const k = (p - 0.90) * (0.22 + chaos*0.12);
+      ctx.globalAlpha = Math.min(0.10, k);
+      const sx = Math.floor(Math.sin(t*23) * 10 * dpr);
+      ctx.drawImage(canvas, sx, 0);
       ctx.globalAlpha = 1;
     }
+  }
+
+  // Pixel-reveal hidden glyph (early hook)
+  function drawReveal(msHeld, dx, dy, chaos){
+    if (msHeld < REVEAL_START_MS) return;
+
+    const p = clamp01((msHeld - REVEAL_START_MS) / (REVEAL_CLEAR_MS - REVEAL_START_MS));
+    const pEase = Math.pow(p, 0.85); // faster early reveal so it's interesting immediately
+
+    // pixel size shrinks over time (starts very chunky)
+    const pxBig = Math.max(18, Math.floor((50 - pEase*46) * dpr)); // ~50 -> ~4
+    const px = Math.max(3, pxBig);
+
+    // position & wobble
+    const cx = W/2 + dx;
+    const cy = H/2 + dy;
+    const t = msHeld/1000;
+    const bob = Math.sin(t*3.4) * Math.min(W,H) * 0.012;
+
+    // draw hidden glyph to offscreen at low resolution, then upscale (pixelated)
+    // Create tiny temp canvas on demand (cached)
+    if (!drawReveal.tmp) {
+      drawReveal.tmp = document.createElement("canvas");
+      drawReveal.tctx = drawReveal.tmp.getContext("2d");
+    }
+    const tmp = drawReveal.tmp;
+    const tctx = drawReveal.tctx;
+
+    const smallW = Math.max(24, Math.floor(W / px));
+    const smallH = Math.max(24, Math.floor(H / px));
+    if (tmp.width !== smallW || tmp.height !== smallH) { tmp.width = smallW; tmp.height = smallH; }
+
+    // Clear small
+    tctx.clearRect(0,0,smallW,smallH);
+
+    // Determine glyph size on small canvas
+    const gx = (smallW/2);
+    const gy = (smallH/2) + (bob/px);
+
+    // Glow intensity grows with reveal
+    const glow = 0.04 + pEase*0.16 + chaos*0.04;
+
+    // draw glow behind glyph (on small canvas)
+    tctx.save();
+    tctx.globalAlpha = glow;
+    tctx.fillStyle = "#ffffff";
+    tctx.textAlign = "center";
+    tctx.textBaseline = "middle";
+    tctx.font = `${Math.floor(Math.min(smallW, smallH) * (0.55 + pEase*0.10))}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+    tctx.fillText(hiddenGlyph, gx, gy);
+    tctx.restore();
+
+    // upscale to main canvas with pixelation
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = 0.22 + pEase*0.40; // faint at first, clearer later
+    ctx.drawImage(tmp, 0, 0, smallW, smallH, 0, 0, W, H);
+    ctx.restore();
+
+    // hint textless cue: small sparkles when reveal passes certain thresholds
+    if (pEase > 0.22 && pEase < 0.26) microSpark(cx, cy, 0.35);
+    if (pEase > 0.55 && pEase < 0.59) microSpark(cx, cy, 0.55);
+  }
+
+  function microSpark(cx, cy, strength){
+    // tiny spark burst - short-lived (called only at thresholds)
+    ctx.save();
+    ctx.globalAlpha = 0.10 + strength*0.12;
+    for (let i=0;i<16;i++){
+      const a = (i/16) * Math.PI*2 + rand(-0.08,0.08);
+      const r = (Math.min(W,H) * (0.04 + strength*0.03)) * rand(0.5, 1.0);
+      const x = cx + Math.cos(a)*r;
+      const y = cy + Math.sin(a)*r;
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillRect(x, y, 2*dpr, 2*dpr);
+    }
+    ctx.restore();
+  }
+
+  // Late tease flicker (near-reward)
+  function drawGhostCreature(msHeld, dx, dy){
+    if (msHeld < GHOST_MS) return;
+
+    const p = clamp01(msHeld / MAX_MS);
+    const expo = Math.pow(p, 3.0);
+    const t = msHeld / 1000;
+
+    const flicker = Math.max(0, Math.sin(t * (9 + expo*18)));
+    const show = (msHeld > 9300) ? (flicker > 0.15) : (flicker > 0.45);
+    if (!show) return;
+
+    const ghosts = ["🦄","🐉","🧚","👁️","🦋"];
+    const glyph = ghosts[(Math.random()*ghosts.length)|0];
+
+    ctx.save();
+    ctx.globalAlpha = 0.05 + expo*0.16;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `${Math.floor((Math.min(W,H) / dpr) * (0.18 + expo*0.08))}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+    ctx.fillText(glyph, (W/2 + dx)/dpr, (H/2 + dy)/dpr);
+    ctx.restore();
   }
 
   function nearDeathFlash(){
@@ -528,8 +602,7 @@
   }
 
   function deathCollapse(){
-    // color dies + crush
-    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.fillStyle = "rgba(0,0,0,.38)";
     ctx.fillRect(0,0,W,H);
     ctx.fillStyle = "rgba(255,0,90,.18)";
     ctx.fillRect(0,0,W,H);
@@ -537,8 +610,11 @@
     ctx.fillRect(0,0,W,H);
   }
 
-  // ========= Audio (soft heartbeat - optional, starts on interaction) =========
+  // =======================
+  // Audio (soft heartbeat)
+  // =======================
   let audioCtx = null, osc = null, gain = null, audioEnabled = false;
+
   function ensureAudio(){
     if (audioCtx) return;
     try {
@@ -552,21 +628,24 @@
       osc.start();
     } catch(e) { audioCtx = null; }
   }
+
   function setHeartbeat(msHeld){
     if (!audioEnabled || !audioCtx || !osc || !gain) return;
-    const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
+    const p = clamp01(msHeld / MAX_MS);
     const expo = Math.pow(p, 2.3);
-    const baseF = 70 + expo * 170;
-    osc.frequency.setValueAtTime(baseF, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(70 + expo * 170, audioCtx.currentTime);
     const vol = (msHeld < DANGER_MS) ? 0.0 : Math.min(0.05, (msHeld - DANGER_MS) / 3500 * 0.05);
     gain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.03);
   }
+
   function muteHeartbeat(){
     if (!gain || !audioCtx) return;
     gain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.03);
   }
 
-  // ========= Game state =========
+  // =======================
+  // State
+  // =======================
   let holding = false, dead = false;
   let holdStart = 0;
   let rafId = null;
@@ -575,16 +654,10 @@
 
   let lastResultText = "";
   let lastSafeMs = 0;
-  let lastMsHeld = 0;
-  let lastCreature = null;
-
-  // drift: the world tries to slip away, you stabilize by staying steady
-  let driftX = 0, driftY = 0;
-  let driftVX = 0, driftVY = 0;
 
   function setUIIdle(){
     dangerPill.style.display = "none";
-    statusPill.textContent = "Hold to charge 🌈";
+    statusPill.textContent = "Hold to reveal ✨";
   }
   function setUIPlaying(){
     hint.style.display = "none";
@@ -598,18 +671,19 @@
     lastHapticStage = -1; flashed = false;
     lastSafeMs = 0;
     lastResultText = "";
-    lastMsHeld = 0;
-    lastCreature = null;
 
     moveEnergy = 0; moveEnergyPeak = 0;
     driftX = 0; driftY = 0; driftVX = 0; driftVY = 0;
+    lastMoveT = 0;
 
     newSeeds();
     clearCanvas();
 
+    // new hidden glyph each round (early hook)
+    hiddenGlyph = HIDDEN_SET[(Math.random()*HIDDEN_SET.length)|0];
+
     hint.style.display = showHint ? "flex" : "none";
     result.style.display = "none";
-
     setUIIdle();
   }
 
@@ -663,40 +737,22 @@
       creatureEl.textContent = "💀";
       headlineEl.textContent = microTitle(msHeld, true);
       subtitleEl.textContent = `You held too long. Death at 10.00s.`;
-      renderMeta([
-        `💀 Death`,
-        `Safe: ${safeHund}s`,
-        calmLabel,
-        pb ? `PB: ${pb.toFixed(2)}s` : null,
-        streak ? `Streak: ${streak}d` : null
-      ].filter(Boolean));
+      renderMeta([`💀 Death`, `Safe: ${safeHund}s`, calmLabel, pb ? `PB: ${pb.toFixed(2)}s` : null, streak ? `Streak: ${streak}d` : null].filter(Boolean));
       lastResultText = `💀 PsyHold: I died. Last safe moment ${safeHund}s. ${challengeLine(scoreStr, true)}\nPlay: ${location.href}`;
       hapticNotif("error");
     } else if (msHeld < CREATURE_START_MS) {
       creatureEl.textContent = "✨";
       headlineEl.textContent = microTitle(msHeld, false);
-      subtitleEl.textContent = `No creature. Release closer to 10.00s.`;
-      renderMeta([
-        `✨ Survived`,
-        calmLabel,
-        pb ? `PB: ${pb.toFixed(2)}s` : null,
-        streak ? `Streak: ${streak}d` : null
-      ].filter(Boolean));
-      lastResultText = `✨ PsyHold: I chickened out. ${challengeLine(scoreStr, false)}\nPlay: ${location.href}`;
+      subtitleEl.textContent = `You almost had it. Hold longer — but don’t die.`;
+      renderMeta([`✨ Survived`, `Reveal: ${hiddenGlyph}`, calmLabel, pb ? `PB: ${pb.toFixed(2)}s` : null, streak ? `Streak: ${streak}d` : null].filter(Boolean));
+      // snacky share (keeps it clickable)
+      lastResultText = `✨ PsyHold: I almost revealed ${hiddenGlyph}. ${challengeLine(scoreStr, false)}\nPlay: ${location.href}`;
       hapticNotif("warning");
     } else {
       creatureEl.textContent = creature.emoji;
       headlineEl.textContent = microTitle(msHeld, false);
       subtitleEl.textContent = `Score: ${scoreStr}s • ${creature.rarity} ${creature.name} (${evo.label})`;
-      renderMeta([
-        `✨ Survived`,
-        `${creature.rarity}`,
-        `${evo.label}`,
-        `${leftHund}s from death`,
-        calmLabel,
-        pb ? `PB: ${pb.toFixed(2)}s` : null,
-        streak ? `Streak: ${streak}d` : null
-      ].filter(Boolean));
+      renderMeta([`✨ Survived`, `${creature.rarity}`, `${evo.label}`, `${leftHund}s from death`, calmLabel, pb ? `PB: ${pb.toFixed(2)}s` : null, streak ? `Streak: ${streak}d` : null].filter(Boolean));
       lastResultText = `${creature.emoji} PsyHold: ${scoreStr}s • ${creature.rarity} ${creature.name} (${evo.label}). ${challengeLine(scoreStr, false)}\nPlay: ${location.href}`;
       hapticNotif("success");
     }
@@ -730,13 +786,10 @@
     holdStart = now;
     lastHapticStage = -1;
     flashed = false;
-
     lastSafeMs = 0;
-    lastMsHeld = 0;
-    lastCreature = null;
-    lastResultText = "";
+    moveEnergy = 0;
+    moveEnergyPeak = 0;
 
-    moveEnergy = 0; moveEnergyPeak = 0;
     driftX = 0; driftY = 0; driftVX = 0; driftVY = 0;
 
     setUIPlaying();
@@ -748,8 +801,6 @@
     holding = false;
 
     const msHeld = now - holdStart;
-    lastMsHeld = msHeld;
-
     muteHeartbeat();
 
     if (msHeld >= MAX_MS) { dieNow(msHeld); return; }
@@ -758,7 +809,6 @@
     if (msHeld >= CREATURE_START_MS) {
       creature = pickCreature(msHeld);
       evo = evolutionFor(msHeld);
-      lastCreature = creature;
     }
 
     showResultCard({ died:false, msHeld, creature, evo });
@@ -769,35 +819,35 @@
       const msHeld = now - holdStart;
       lastSafeMs = Math.min(MAX_MS - 1, msHeld);
 
-      // chaos rises with time AND with movement energy
-      const p = Math.max(0, Math.min(1, msHeld / MAX_MS));
-      const timeDanger = Math.max(0, p - 0.65) / 0.35; // 0..1 after 6.5s-ish
+      const p = clamp01(msHeld / MAX_MS);
+      const timeDanger = Math.max(0, p - 0.65) / 0.35; // 0..1 after ~6.5s
       const chaos = Math.min(1, (timeDanger*0.85 + moveEnergy*0.25) * MOVE_GAIN);
 
-      // drift: world tries to slide away; steadiness reduces chaos and drift
-      // (illusion of control)
+      // drift slips more with chaos
       const pull = 0.0009 + timeDanger*0.0030;
       driftVX += (rand(-1,1) * (0.05 + chaos*0.35)) * pull * W;
       driftVY += (rand(-1,1) * (0.05 + chaos*0.35)) * pull * H;
 
-      // friction (but near death it becomes slippery)
-      const friction = 0.88 - timeDanger*0.20; // 0.68 near end
-      driftVX *= friction;
-      driftVY *= friction;
+      const friction = 0.88 - timeDanger*0.20;
+      driftVX *= friction; driftVY *= friction;
 
-      driftX += driftVX;
-      driftY += driftVY;
-
-      // clamp drift so it doesn't go insane
-      const clamp = Math.min(W,H) * (0.12 + chaos*0.06);
-      driftX = Math.max(-clamp, Math.min(clamp, driftX));
-      driftY = Math.max(-clamp, Math.min(clamp, driftY));
+      driftX += driftVX; driftY += driftVY;
+      const clampD = Math.min(W,H) * (0.12 + chaos*0.06);
+      driftX = Math.max(-clampD, Math.min(clampD, driftX));
+      driftY = Math.max(-clampD, Math.min(clampD, driftY));
 
       if (msHeld >= MAX_MS) {
         dieNow(msHeld);
       } else {
         renderPsy(msHeld, chaos, driftX, driftY);
+
+        // early hook: pixel reveal every frame
+        drawReveal(msHeld, driftX, driftY, chaos);
+
+        // core magnet
         drawCore(msHeld, chaos, driftX, driftY);
+
+        // late tease (near reward)
         drawGhostCreature(msHeld, driftX, driftY);
 
         // danger cues
@@ -813,11 +863,12 @@
         setHeartbeat(msHeld);
       }
     }
-
     rafId = requestAnimationFrame(loop);
   }
 
-  // ========= Input =========
+  // =======================
+  // Input
+  // =======================
   function canvasPoint(e){
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * dpr;
@@ -853,7 +904,9 @@
     releaseHold(performance.now());
   });
 
-  // ========= Buttons =========
+  // =======================
+  // Buttons
+  // =======================
   againBtn.addEventListener('click', ()=>{
     result.style.display = "none";
     resetRound();
@@ -863,8 +916,6 @@
     const newStreak = bumpStreakIfFirstShareToday();
     const pb = parseFloat(localStorage.getItem(LS_PB) || "0") || 0;
 
-    // Snacky, Telegram-friendly share line
-    // (short text = more clicks)
     let line = lastResultText;
     if (!line) line = `PsyHold: no timer. 10.00s = death. Beat me.\nPlay: ${location.href}`;
 
@@ -874,7 +925,7 @@
     shareText(line + extra);
   });
 
-  // Tap outside result closes (instant retry loop)
+  // Tap outside result to close (instant retry loop)
   result.addEventListener("click", (e)=>{
     if (e.target === result) {
       result.style.display = "none";
@@ -882,7 +933,9 @@
     }
   });
 
-  // ========= Boot =========
+  // =======================
+  // Boot
+  // =======================
   resetRound({ showHint:true });
 })();
 </script>
